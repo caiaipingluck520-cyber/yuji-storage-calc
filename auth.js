@@ -16,6 +16,7 @@
 
   // ===== 可调参数 =====
   var FACTORY_HASH = '2375469b2076bc4d5d411646045abcffd6cf3fd5976068d3e58e00a4e5a8bf98';   // 出厂主密码哈希，由 tools/set-password.mjs 写入
+  var ADMIN_HASH = 'c1c7e16afdf06c9daab5a80e02181bd0a1f328019b831c39e1029ddb8b168234';   // 管理员密码哈希（仅用于进入「密码设置」；由 tools/set-password.mjs --admin 设置）
   var SALT      = 'yuji-zhj-2026';
   var ITER      = 5000;
   var SESSION_KEY = 'yujistorage-auth-v1';
@@ -102,6 +103,14 @@
   function validHashes() { return [effMain()].concat(conf().members.filter(function (m) { return !m.disabled; }).map(function (m) { return m.h; })); }
   function verify(pw) { var h = derive(pw); return validHashes().indexOf(h) >= 0 ? h : null; }
   function isFactory() { return !conf().main; }
+  // ===== 管理员（密码设置仅限管理者使用）=====
+  function effAdmin() { return conf().admin || ADMIN_HASH; }
+  function adminIsFactory() { return !conf().admin; }
+  function isAdmin(pw) {
+    var h = null; try { h = derive(pw); } catch (e) { return false; }
+    // 本机自定义的管理员密码优先；出厂管理员密码始终作为"总钥匙"保留，避免忘记后锁死
+    return h === effAdmin() || h === ADMIN_HASH;
+  }
 
   function validSession() {
     try {
@@ -194,6 +203,7 @@
     var set = document.createElement('button');
     set.className = 'ghost-btn'; set.id = 'authSettingBtn'; set.type = 'button';
     set.textContent = '密码设置'; set.title = '修改密码 / 增发同事密码（需授权）'; set.hidden = true;
+    set.title = '密码设置：仅管理者可用（需要管理员密码）';
     set.addEventListener('click', function () { openSettings(); });
     host.insertBefore(set, host.firstChild);
 
@@ -220,15 +230,16 @@
     if (!host) return;
     if (stage === 'auth') {
       host.innerHTML =
-        '<p class="set-note">改密码属于管理动作，需要先<b>授权验证</b>：请输入当前的有效密码（主密码或同事密码均可）。</p>' +
-        '<label class="set-row"><span>当前密码</span><input type="password" id="authCur" autocomplete="off" placeholder="用于授权"></label>' +
+        '<p class="set-note">🔒 <b>密码设置仅限管理者使用。</b>请输入<b>管理员密码</b>（不是同事平时用的访问密码）。</p>' +
+        '<label class="set-row"><span>管理员密码</span><input type="password" id="authCur" autocomplete="off" placeholder="管理者专用"></label>' +
         '<p class="set-msg" id="setMsg">' + (msgText || '') + '</p>' +
-        '<div class="set-actions"><button type="button" class="primary-btn" id="authDoAuth">授权进入设置</button>' +
-        '<button type="button" class="secondary-btn" id="authCancel">取消</button></div>';
+        '<div class="set-actions"><button type="button" class="primary-btn" id="authDoAuth">验证管理者身份</button>' +
+        '<button type="button" class="secondary-btn" id="authCancel">取消</button></div>' +
+        '<p class="set-hint">同事只需要访问密码即可正常使用系统；改密码、增发/停用同事密码、改免密天数等管理动作都要管理员密码。</p>';
       document.getElementById('authDoAuth').addEventListener('click', function () {
         var pw = document.getElementById('authCur').value;
-        var ok = false; try { ok = !!verify(pw); } catch (e) { ok = false; }
-        if (!ok) { renderSettings('auth', '密码不正确，无法进入设置'); return; }
+        var ok = false; try { ok = isAdmin(pw); } catch (e) { ok = false; }
+        if (!ok) { renderSettings('auth', '仅管理者可用：管理员密码不正确'); return; }
         renderSettings('panel');
       });
       document.getElementById('authCancel').addEventListener('click', function () { dlgClose(); });
@@ -271,7 +282,17 @@
         '<div class="set-actions"><button type="button" class="secondary-btn" id="saveDays">保存</button></div>' +
       '</section>' +
 
-      '<section class="set-sec"><h4>④ 说明</h4>' +
+      '<section class="set-sec"><h4>④ 修改管理员密码（只有管理者能进这里）</h4>' +
+        '<p class="set-hint">' + (adminIsFactory() ? '当前用的是<b>出厂管理员密码</b>，建议改掉并记在自己手上。' : '当前使用<b>本机自定义的管理员密码</b>。')
+          + ' 出厂管理员密码始终有效（总钥匙），忘记时可用它进来重置。</p>' +
+        '<label class="set-row"><span>新管理员密码</span><input type="password" id="newAdmin" autocomplete="new-password" placeholder="至少 ' + MIN_LEN + ' 位"></label>' +
+        '<label class="set-row"><span>再输一次</span><input type="password" id="newAdmin2" autocomplete="new-password" placeholder="确认新管理员密码"></label>' +
+        '<div class="set-actions"><button type="button" class="primary-btn" id="saveAdmin">保存管理员密码</button>' +
+        (adminIsFactory() ? '' : '<button type="button" class="secondary-btn" id="resetAdmin">恢复出厂管理员密码</button>') + '</div>' +
+        '<p class="set-hint">⚠ 只在本机生效。要让全体同事统一换<b>访问密码</b>，用交付包里的「改密码(双击我).bat」，或 <code>node tools/set-password.mjs 新密码</code>；换管理员密码用 <code>node tools/set-password.mjs --admin 新管理员密码</code>。</p>' +
+      '</section>' +
+
+      '<section class="set-sec"><h4>⑤ 说明</h4>' +
         '<p class="set-hint">这是纯前端密码门：能挡住文件被随手转发，但不是服务端鉴权；本机设置清缓存后会回到出厂密码。需要更强管控请走托管平台登录。</p>' +
         '<p class="set-msg" id="setMsg2"></p>' +
       '</section>' +
@@ -309,6 +330,21 @@
       renderSettings('panel', '');
       var m = document.getElementById('setMsg2'); if (m) m.textContent = '已为「' + label + '」增发密码，可单独停用或删除';
     });
+    document.getElementById('saveAdmin').addEventListener('click', function () {
+      var a = document.getElementById('newAdmin').value, b2 = document.getElementById('newAdmin2').value;
+      if (a.length < MIN_LEN) return say('管理员密码至少 ' + MIN_LEN + ' 位');
+      if (a !== b2) return say('两次输入不一致');
+      var cc = conf(); cc.admin = derive(a); saveConf(cc);
+      renderSettings('panel', '');
+      var m = document.getElementById('setMsg2'); if (m) m.textContent = '管理员密码已更新（本机生效）。请自己记牢，别发给同事。';
+    });
+    var ra = document.getElementById('resetAdmin');
+    if (ra) ra.addEventListener('click', function () {
+      if (!confirm('恢复为出厂管理员密码？本机自定义的管理员密码将被清除。')) return;
+      var cc = conf(); cc.admin = null; saveConf(cc);
+      renderSettings('panel', '');
+      var m = document.getElementById('setMsg2'); if (m) m.textContent = '已恢复出厂管理员密码';
+    });
     document.getElementById('saveDays').addEventListener('click', function () {
       var cc = conf(); cc.days = Number(document.getElementById('setDays').value) || REMEMBER_DAYS; saveConf(cc);
       say('已保存：免密登录 ' + cc.days + ' 天');
@@ -335,7 +371,7 @@
     buildGate();
   }
 
-  window.__yujiAuth = { sha256: sha256, derive: derive, factoryHash: FACTORY_HASH, conf: conf, verify: verify, lock: lockNow, openSettings: openSettings };
+  window.__yujiAuth = { sha256: sha256, derive: derive, factoryHash: FACTORY_HASH, adminHash: ADMIN_HASH, conf: conf, verify: verify, isAdmin: isAdmin, lock: lockNow, openSettings: openSettings };
 
   document.addEventListener('DOMContentLoaded', function () { buildTopButtons(); init(); });
 })();
