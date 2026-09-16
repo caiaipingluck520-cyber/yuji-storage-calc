@@ -96,3 +96,7 @@
 .ask-meta{font-size:.75rem;color:var(--muted);margin-bottom:8px;line-height:1.6}
 .ask-note{font-size:.75rem;color:#4c5b66;line-height:1.7;margin:8px 0 0}
 .ask-copy{width:100%;margin-top:10px}
+
+.ask-save{width:100%;margin-top:10px}
+.ask-fill{width:100%;margin-top:6px}
+.rpt-pre{white-space:pre-wrap;font-size:.82rem;line-height:1.7;background:#f7f9fa;border:1px solid #e2e8ec;padding:10px 12px;font-family:inherit}

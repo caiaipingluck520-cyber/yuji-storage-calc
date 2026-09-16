@@ -379,4 +379,4 @@ window.YujiGeneral = {
   library: function(){ return objectLibrary; }
 };
 
-document.addEventListener('DOMContentLoaded',initGeneral);
+if(document.addEventListener)document.addEventListener('DOMContentLoaded',initGeneral);

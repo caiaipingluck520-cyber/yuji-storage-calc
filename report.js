@@ -76,6 +76,38 @@
   }
 
   // ===================== HTML 报告 =====================
+  // 收纳方案（优先用现场提问存下的；否则按记录尺寸自动生成）
+  var planCache = {};
+  function planOf(it) {
+    if (it.askPlan && it.askPlan.text) return { text: it.askPlan.text, rows: it.askPlan.rows || [], src: '现场提问（已存入）' };
+    var key = [it.label, it.width, it.height, it.depth, it.bayWidth, it.scene, it.itemName].join('|');
+    if (key in planCache) return planCache[key];
+    var out = null;
+    try {
+      if (window.YujiAsk && it.scene && it.width && it.height) {
+        var q = (it.label ? it.label + '·' : '') + it.scene + '：宽 ' + Math.round(it.width) + '、高 ' + Math.round(it.height) + '、深 ' + Math.round(it.depth) + ' mm 的柜体，建议怎么放置和收纳？';
+        var res = window.YujiAsk.answer(q, {
+          length: it.width, height: it.height, depth: it.depth,
+          bayWidth: it.bayWidth || 600, board: it.board || 18, depthLoss: it.depthLoss || 30,
+          reserved: it.reserved || 0, plinth: it.plinth || 0
+        });
+        if (res && res.ok) out = { text: res.text, rows: res.rows || [], src: '系统按该柜尺寸自动生成' };
+      }
+    } catch (e) { out = null; }
+    planCache[key] = out;
+    return out;
+  }
+  function planTable(p) {
+    if (p.rows && p.rows.length) {
+      return '<table class="rpt-tb"><thead><tr><th>区域 / 层位</th><th>放什么</th><th>建议数量</th><th>容量上限</th><th>离地高度</th></tr></thead><tbody>' +
+        p.rows.map(function (x) {
+          return '<tr><td>' + esc(x.where) + '</td><td><b>' + esc(x.name) + '</b></td><td>' + x.suggest + ' ' + esc(x.unit || '') +
+            '</td><td>' + x.cap + ' ' + esc(x.unit || '') + '</td><td>' + fmt(x.from) + '–' + fmt(x.to) + ' mm</td></tr>';
+        }).join('') + '</tbody></table>';
+    }
+    return '<pre class="rpt-pre">' + esc(p.text) + '</pre>';
+  }
+
   function render() {
     var d = collect(), s = summaries(d);
     var host = document.getElementById('reportBody') || document.getElementById('reportView');
@@ -161,6 +193,18 @@
         '</tbody></table>' +
         '<h3>待办与提醒</h3><ul class="rpt-list">' + wl + '</ul>' +
         (advLines.length ? '<h3>收纳建议</h3><ul class="rpt-list">' + advLines.slice(0, 6).map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>' : ''));
+    });
+
+    // 5b 收纳方案建议（自主提问）
+    var planItems = d.items.filter(function (it) { return planOf(it); }).slice(0, 8);
+    planItems.forEach(function (it, i) {
+      var p = planOf(it);
+      out += page(
+        '<h2>四·补.' + (i + 1) + '　收纳方案建议 · ' + esc(it.label || '未编号柜体') + '</h2>' +
+        '<p class="rpt-note">来源：' + esc(p.src) + '　｜　物品与尺寸全部取自「' + esc(it.scene || '') + '」物品库，数量按柜体净空算得并已留取放余量。</p>' +
+        planTable(p) +
+        '<p class="rpt-note">位置原则：高频物品放中段（站着伸手就够），重物和大件放底层，低频备品放顶层。下单前请按客户实物复核最长/最厚的那一件。</p>'
+      );
     });
 
     // 对账表
@@ -345,6 +389,26 @@
           table(pMore, rowsM, { colW: [2.4, 2.4, 1.5, 1.3, 1.5], rowH: 0.32, fontSize: 10 });
         }
 
+        // 四·补 收纳方案建议（自主提问）
+        var planRecs = d.items.filter(function (it) { return planOf(it); }).slice(0, 6);
+        planRecs.forEach(function (it, i) {
+          var pl = planOf(it);
+          var slp = pptx.addSlide();
+          head(slp, '四·补' + (i + 1) + '　收纳方案 · ' + (it.label || ''), (it.scene || '') + ' · ' + pl.src);
+          if (pl.rows && pl.rows.length) {
+            var rowsP = [[{ text: '区域 / 层位', options: { bold: true, fill: { color: PAPER } } }, { text: '放什么', options: { bold: true, fill: { color: PAPER } } }, { text: '建议数量', options: { bold: true, fill: { color: PAPER } } }, { text: '容量上限', options: { bold: true, fill: { color: PAPER } } }, { text: '离地高度', options: { bold: true, fill: { color: PAPER } } }]];
+            pl.rows.slice(0, 10).forEach(function (x) {
+              rowsP.push([x.where, x.name, x.suggest + ' ' + (x.unit || ''), x.cap + ' ' + (x.unit || ''), Math.round(x.from) + '–' + Math.round(x.to) + ' mm']);
+            });
+            table(slp, rowsP, { colW: [2.0, 2.9, 1.5, 1.4, 2.0], rowH: 0.30, fontSize: 9.5 });
+          } else {
+            slp.addText(pl.text.split('\n').slice(0, 13).map(function (t) { return { text: t.replace(/\*\*/g, '') + '\n' }; }),
+              { x: 0.55, y: 1.0, w: 8.9, h: 4.2, fontSize: 10.5, color: INK, fontFace: FONT, lineSpacing: 16 });
+          }
+          slp.addText('说明：只使用该场景物品库的条目；数量按柜体净空算得并已留取放余量。高频放中段、重物放底层、低频放顶层。下单前按实物复核最长/最厚的那一件。',
+            { x: 0.5, y: 4.85, w: 9.1, h: 0.5, fontSize: 9, color: MUTED, fontFace: FONT });
+        });
+
         // 对账表
         var p5 = pptx.addSlide(); head(p5, '五、物品 ↔ 容量对账表', d.project);
         var rows5 = [[{ text: '柜体 / 位置', options: { bold: true, fill: { color: PAPER } } }, { text: '物品', options: { bold: true, fill: { color: PAPER } } }, { text: '客户需求', options: { bold: true, fill: { color: PAPER } } }, { text: '理论容量', options: { bold: true, fill: { color: PAPER } } }, { text: '建议装载', options: { bold: true, fill: { color: PAPER } } }, { text: '结论', options: { bold: true, fill: { color: PAPER } } }]];
@@ -356,7 +420,7 @@
         p5.addText('结论规则：需求 ≤ 建议装载 → 够用；建议装载 < 需求 ≤ 理论容量 → 偏紧；需求 > 理论容量 → 缺口。', { x: 0.45, y: 4.9, w: 9.1, h: 0.3, fontSize: 9, color: MUTED, fontFace: FONT });
 
         // 建议摘要
-        var p6 = pptx.addSlide(); head(p6, '六、收纳建议摘要', ' × 量化 × ');
+        var p6 = pptx.addSlide(); head(p6, '六、收纳建议摘要', '量化收纳口径 · 现场可直接执行');
         p6.addText([
           { text: '三条铁律：就近存放（东西放在被使用的地方）· 同物集中（同类只放一处）· 指定座位（固定位+标签，用完归位）\n' },
           { text: '进深：按物品定三档 20/30/40cm；余深不会变成容量，深处会变成遗忘区\n' },

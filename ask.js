@@ -115,8 +115,10 @@
 
   // ---------- 柜体与容量 ----------
   function cabinet(over) {
-    var g = window.YujiGeneral;
-    var o = Object.assign({}, (g && g.cabinet ? g.cabinet() : {}), over || {});
+    var g = window.YujiGeneral, base = {};
+    // 左侧面板不存在（如离线报告/PPTX 导出、Node 校验沙箱）时，全部走 over 传入的尺寸
+    try { if (g && g.cabinet) base = g.cabinet() || {}; } catch (e) { base = {}; }
+    var o = Object.assign({}, base, over || {});
     var board = num(o.board) || 18;
     var bays = Math.max(1, Math.ceil(num(o.length) / Math.max(200, num(o.bayWidth) || 600)));
     var netWidth = Math.max(0, num(o.length) - board * (bays + 1));
@@ -150,8 +152,9 @@
     var cab = cabinet(over);
     if (!cab.length || !cab.height) return { ok: false, text: '请先在左侧填写柜体尺寸（或直接在问题里写"1米宽2米高"），我再给方案。' };
 
-    var scene = p.scene || (window.YujiGeneral ? window.YujiGeneral.scene() : '玄关');
-    if (p.scene && window.YujiGeneral && window.YujiGeneral.setScene) window.YujiGeneral.setScene(scene);
+    var scene = p.scene;
+    if (!scene) { try { scene = (window.YujiGeneral && window.YujiGeneral.scene()) || '玄关'; } catch (e) { scene = '玄关'; } }
+    if (p.scene && window.YujiGeneral && window.YujiGeneral.setScene) { try { window.YujiGeneral.setScene(scene); } catch (e) {} }
 
     var sceneItems = lib().filter(function (it) { return it.scene === scene; });
     if (!sceneItems.length) return { ok: false, text: '没有找到「' + scene + '」场景的物品数据。' };
@@ -333,9 +336,19 @@
       '<p class="ask-note">位置建议：高频物品放中段（离地约 ' + fmt(midFrom) + '–' + fmt(midTo) + 'mm），底层放重物和大件，顶层放低频备品或用收纳盒合并小件。</p>' +
       '<p class="ask-note">合计约 ' + fmt(total) + ' 件（已留取放余量）。物品与尺寸全部取自「' + esc(scene) + '」物品库的实测条目，未引入库外物品。</p>' +
       (remainTxt ? '<p class="ask-note">' + esc(remainTxt) + '</p>' : '') +
+      '<button type="button" class="secondary-btn ask-save" data-saveplan="1">把这份方案存入当前柜体（随报告与 PPTX 导出）</button>' +
       (fromQ.length ? '<button type="button" class="secondary-btn ask-fill" data-fill="' + [cab.length, cab.height, cab.depth].join(',') + '">把这三个尺寸填到左侧柜体</button>' : '');
 
-    return { ok: true, html: html, text: lines.join('\n'), scene: scene, layers: p.layers || placed.length };
+    // 结构化行（给报告/PPTX 用）
+    var seq = 0;
+    var outRows = placed.map(function (r) {
+      var where = r.zone;
+      if (!where || where === '层板区') { seq++; where = '第 ' + seq + ' 层'; }
+      return { where: where, name: r.name, unit: r.unit, suggest: r.suggest, cap: r.cap,
+        from: Math.round(r.from), to: Math.round(r.to), clear: Math.round(r.layerClear) };
+    });
+
+    return { ok: true, html: html, text: lines.join('\n'), rows: outRows, scene: scene, question: question, layers: p.layers || placed.length };
   }
 
   // ---------- 界面 ----------
@@ -355,6 +368,7 @@
       var r = answer(text, null);
       out.innerHTML = r.ok ? r.html : '<p class="ask-note">' + esc(r.text) + '</p>';
       window._askText = r.ok ? r.text : '';
+      window._askLast = r.ok ? r : null;
       refresh();
     };
     btn.addEventListener('click', run);
@@ -368,6 +382,17 @@
       b.addEventListener('click', function () { q.value = b.dataset.ask; run(); });
     });
     out.addEventListener('click', function (e) {
+      var sv = e.target.closest && e.target.closest('[data-saveplan]');
+      if (sv) {
+        var last = window._askLast;
+        if (!last || !last.text) { if (window.showToast) showToast('先问一次再存入'); return; }
+        window.__yujiAskPlan = {
+          scene: last.scene, question: last.question, text: last.text, rows: last.rows || [],
+          label: (document.getElementById('generalLabel') || {}).value || '', at: Date.now()
+        };
+        if (window.showToast) showToast('方案已存入当前柜体，加入项目汇总后会出现在报告与 PPTX 里');
+        return;
+      }
       var b = e.target.closest && e.target.closest('[data-fill]');
       if (!b) return;
       var v = b.dataset.fill.split(',');
@@ -380,5 +405,5 @@
   }
 
   window.YujiAsk = { answer: answer, parse: parseQuestion, mount: mount };
-  document.addEventListener('DOMContentLoaded', function () { setTimeout(mount, 60); });
+  if (document.addEventListener) document.addEventListener('DOMContentLoaded', function () { setTimeout(mount, 60); });
 })();

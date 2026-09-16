@@ -229,7 +229,13 @@ function switchView(name){
 
 function addItem(result){
   const stamp = new Date();
-  projectItems.push({...result,id:`${Date.now()}-${Math.random().toString(16).slice(2)}`,createdAt:stamp.toISOString(),warnings:result.warnings.map(w=>({...w}))});
+  const rec={...result,id:`${Date.now()}-${Math.random().toString(16).slice(2)}`,createdAt:stamp.toISOString(),warnings:result.warnings.map(w=>({...w}))};
+  const plan=window.__yujiAskPlan;
+  if(plan&&plan.text&&(!plan.scene||plan.scene===result.scene)){
+    rec.askPlan={scene:plan.scene,question:plan.question||'',text:plan.text,rows:plan.rows||[]};
+    window.__yujiAskPlan=null;
+  }
+  projectItems.push(rec);
   renderSummary(); saveState(); showToast(`${result.label} 已加入项目汇总`);
 }
 
