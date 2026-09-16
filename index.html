@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0f2438">
+  <meta name="description" content="聿集收纳速算系统 — 全屋物品收纳容量快速核算工具，覆盖玄关、厨房、卫浴、家政、衣帽、书房、儿童与大件储藏，支持离线使用。">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="聿集收纳速算系统">
+  <title>聿集收纳速算系统</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230f2438'/%3E%3Cpath d='M14 14h36v36H14zM14 31h36M31 14v36' fill='none' stroke='%23f4b942' stroke-width='4'/%3E%3Ccircle cx='24' cy='23' r='2' fill='%23f4b942'/%3E%3Ccircle cx='41' cy='40' r='2' fill='%23f4b942'/%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="./icon-192.svg">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./general.css">
+  <style>
+    /* 访问密码门：未解锁时隐藏全部内容，避免闪现；样式内联以免依赖外部 CSS 缓存 */
+    html.auth-locked body > .topbar,
+    html.auth-locked body > .app-shell,
+    html.auth-locked body > .toast,
+    html.auth-locked body > dialog { display: none !important; }
+    html.auth-locked, html.auth-locked body { overflow: hidden; }
+    #authGate{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:20px;
+      background:radial-gradient(120% 120% at 50% 0%,#17324a 0%,#0f2438 55%,#0a1a2b 100%);}
+    .auth-card{width:100%;max-width:392px;background:#fff;padding:30px 28px 22px;border-top:4px solid var(--accent);
+      box-shadow:0 30px 70px rgba(3,14,24,.5);position:relative}
+    .auth-brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+    .auth-mark{display:grid;grid-template-columns:repeat(2,11px);grid-template-rows:repeat(2,11px);gap:3px}
+    .auth-mark i{border:2px solid var(--ink)}
+    .auth-brand div{display:flex;flex-direction:column;line-height:1.25}
+    .auth-brand strong{font-size:.98rem;letter-spacing:.08em;color:var(--ink)}
+    .auth-brand em{font-size:.72rem;color:var(--muted);font-style:normal}
+    .auth-card h2{font-size:1.32rem;margin:0 0 8px;color:var(--ink);letter-spacing:-.01em}
+    .auth-sub{font-size:.78rem;color:var(--muted);margin:0 0 20px;line-height:1.6}
+    .auth-field{display:block}
+    .auth-field span{display:block;font-size:.73rem;font-weight:800;letter-spacing:.06em;color:#5a6974;text-transform:uppercase;margin-bottom:6px}
+    .auth-field input{width:100%;height:48px;border:1px solid #bcc8cf;background:#f8fafb;border-radius:3px;padding:0 64px 0 13px;font-size:1rem;font-weight:700;outline:none}
+    .auth-field input:focus{border-color:var(--accent-dark);box-shadow:0 0 0 3px rgba(244,185,66,.25)}
+    .auth-input-wrap{position:relative;display:block}
+    .auth-eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);border:1px solid var(--line);background:#fff;border-radius:3px;padding:5px 9px;color:var(--ink-2);font-size:.74rem;font-weight:800}
+    .auth-remember{margin:14px 0 6px;font-size:.78rem;color:#5a6974}
+    .auth-remember input{accent-color:var(--accent-dark);vertical-align:-1px;margin-right:6px}
+    .auth-msg{min-height:19px;font-size:.78rem;color:var(--danger);margin:8px 0 4px;font-weight:700}
+    .auth-submit{width:100%;min-height:48px;border:0;background:var(--ink);color:#fff;font-size:.95rem;font-weight:850;border-radius:3px;letter-spacing:.1em}
+    .auth-submit:hover{background:var(--ink-2)}
+    .auth-submit:disabled{opacity:.6;cursor:default}
+    .auth-foot{margin:16px 0 0;text-align:center;font-size:.7rem;color:#93a2ad}
+    .auth-card.shake{animation:authShake .34s}
+    @keyframes authShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(3px)}}
+    @media print { #authGate{display:none !important} }
+  </style>
+  <script>
+    /* 同步置位锁定类：未解锁时立刻隐藏内容，避免页面闪现 */
+    (function () {
+      try {
+        var s = JSON.parse(localStorage.getItem('yujistorage-auth-v1') || 'null');
+        if (s && s.exp > Date.now()) return;   // 有会话，交给 auth.js 复核
+      } catch (e) {}
+      document.documentElement.classList.add('auth-locked');
+    })();
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <div><strong>聿集收纳速算系统</strong><span>整装收纳量化 · V1.6</span></div>
+    </div>
+    <div class="top-actions">
+      <button class="ghost-btn" id="installBtn" hidden>安装到手机</button>
+      <button class="icon-btn" id="helpBtn" aria-label="查看使用说明">?</button>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section class="project-strip" aria-label="项目信息">
+      <label>客户<input id="clientName" placeholder="客户称呼" autocomplete="off"></label>
+      <label>楼盘 / 小区<input id="communityName" placeholder="如 江山境 191" autocomplete="off"></label>
+      <label>户型面积（㎡）<input id="areaSize" type="number" min="0" step="1" placeholder="如 191"></label>
+      <label>项目名<input id="projectName" value="新项目" autocomplete="off"></label>
+      <label>设计师<input id="designerName" placeholder="填写姓名" autocomplete="off"></label>
+      <div class="project-meta"><span id="saveStatus">已自动保存</span><button class="text-btn" id="resetAllBtn">清空本机数据</button></div>
+    </section>
+
+    <nav class="mode-tabs two-tabs" aria-label="计算器选择">
+      <button class="mode-tab active" data-view="general" aria-selected="true"><span>01</span>全屋速算</button>
+      <button class="mode-tab" data-view="summary" aria-selected="false"><span>02</span>项目汇总 <b id="summaryCount">0</b></button>
+    </nav>
+
+    <section class="calculator-view active" id="generalView">
+      <div class="workspace-grid">
+        <form class="input-panel" id="generalForm">
+          <div class="panel-heading">
+            <div><span class="eyebrow">WHOLE-HOME OBJECT SCALE</span><h1>选物品，填四个尺寸</h1></div>
+            <span class="library-count" id="libraryCount">—</span>
+          </div>
+
+          <fieldset class="scene-picker">
+            <legend>01 · 使用场景与物品</legend>
+            <div class="field-grid two">
+              <label>使用场景<select id="generalScene"></select></label>
+              <label>收纳物品<select id="generalItem"></select></label>
+              <label class="shoe-lay-field">鞋类摆放口径<select id="generalShoeLay"><option value="stagger" selected>错位摆放（达哥口径 · 每米约 8 双）</option><option value="side">并排直放（保守 · 每米约 5 双）</option></select><small>仅对「鞋类」生效：错位＝相邻两双错开半只；并排＝两鞋平放、取放最顺手但占宽约 1.6 倍。</small></label>
+              <label class="shoe-lay-field">挂衣方式<select id="generalRails"><option value="auto" selected>自动（短衣双层 / 长衣单杆）</option><option value="single">强制单杆</option><option value="double">强制上下双杆</option></select><small>仅对「挂杆悬挂」生效。长衣（衣长 &gt;1050mm，如羽绒服、大衣）默认单杆：双杆需净高 ≥ 2×衣长+100mm，且上杆要抬手掏、衣摆会压住下排。</small></label>
+            </div>
+            <div class="item-context" id="itemContext"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>02 · 柜体尺寸 <small>只需这四项 · 单位 mm</small></legend>
+            <div class="cabinet-four-grid">
+              <label><span>L</span>柜体总长<small>沿墙横向总长</small><input type="number" id="generalLength" value="1200" min="200" step="10"></label>
+              <label><span>W</span>单格宽度<small>不清楚填 600</small><input type="number" id="generalBayWidth" value="600" min="200" step="10"></label>
+              <label><span>H</span>柜体总高<small>含地脚与顶封</small><input type="number" id="generalHeight" value="2200" min="200" step="10"></label>
+              <label><span>D</span>柜体总深<small>含门板</small><input type="number" id="generalDepth" value="400" min="100" step="10"></label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>03 · 项目标记</legend>
+            <div class="field-grid two">
+              <label>柜体编号 / 位置<input type="text" id="generalLabel" value="C1 玄关综合柜" autocomplete="off"></label>
+              <label>使用者身高<input type="number" id="generalUserHeight" value="1600" min="1000" max="2000" step="10"><small style="display:block;color:var(--muted);font-size:.7rem;font-weight:500">用来算"够得到 / 视线 / 黄金区"（身高×1.2 / ×0.9 / ×0.4）</small></label>
+              <label class="span-2">家庭成员与身高<input id="familyMembers" placeholder="如 业主:1750, 太太:1620, 孩子:1200, 父母:1580（写 cm 或 mm 都可以）" autocomplete="off"><small style="display:block;color:var(--muted);font-size:.7rem;font-weight:500">用于按人算"够得到/视线/黄金区"，也是适老与儿童可达的依据</small></label>
+              <label>客户实际数量<input type="number" id="generalNeedQty" value="0" min="0" step="1"><small style="display:block;color:var(--muted);font-size:.7rem;font-weight:500">这项物品客户家实际有多少件/双/口；0＝未提供</small></label>
+              <label>未来增量<select id="generalGrowth"><option value="0">不预留</option><option value="0.15">15%</option><option value="0.2" selected>20%</option><option value="0.25">25%</option><option value="0.3">30%</option></select></label>
+            </div>
+          </fieldset>
+
+          <details class="advanced-box general-assumptions">
+            <summary>查看 / 微调自动假设 <span>平时不用改</span></summary>
+            <div class="assumption-grid">
+              <label>板厚<input type="number" id="generalBoard" value="18" min="12" max="30"></label>
+              <label>门板/背板扣深<input type="number" id="generalDepthLoss" value="30" min="0" max="100"></label>
+              <label>地脚 / 底部悬空<input type="number" id="generalPlinth" value="0" min="0" step="10"></label>
+              <label>其它占高<input type="number" id="generalReserved" value="0" min="0" step="10"></label>
+              <label>单元层净高<input type="number" id="generalModuleHeight" value="200" min="50" step="10"></label>
+              <label>单件占宽覆盖<input type="number" id="generalPitch" value="0" min="0" step="5"><small style="display:block;color:var(--muted);font-size:.7rem;font-weight:500">0＝用物品库默认值</small></label>
+              <label>单摞 / 单格数量<input type="number" id="generalStackQty" value="1" min="1" max="50"></label>
+              <label>存放方式<select id="generalMethod"><option value="shelf-row">层板单排</option><option value="shelf-grid">层板双排/网格</option><option value="stack-group">成摞叠放</option><option value="vertical">直立槽位</option><option value="hang">挂杆悬挂</option><option value="volume">大件独立</option></select></label>
+            </div>
+          </details>
+        </form>
+
+        <aside class="result-panel general-result" aria-live="polite">
+          <div class="result-topline"><span>场景容量</span><span class="status-pill" id="generalStatus">可核算</span></div>
+          <div class="item-result-heading"><small id="generalSceneName">玄关</small><b id="generalItemName">—</b></div>
+          <div class="hero-number"><strong id="generalCapacity">0</strong><span id="generalUnit">件</span><small>理论总容量</small></div>
+          <div class="safe-capacity"><span>建议当前最多放</span><b id="generalSafe">0 件</b><em id="generalReserveText">已留 20% 增量</em></div>
+          <div class="object-scale-card">
+            <div class="object-cube" aria-hidden="true"><i></i><span id="objectCubeLabel">W × D × H</span></div>
+            <dl>
+              <div><dt>物品参考尺寸</dt><dd id="generalItemDims">—</dd></div>
+              <div><dt>默认存放方式</dt><dd id="generalMethodText">—</dd></div>
+              <div><dt>单层 / 层数</dt><dd id="generalLayerInfo">—</dd></div>
+              <div><dt>柜内净尺寸</dt><dd id="generalNetDims">—</dd></div>
+            </dl>
+          </div>
+          <div class="warnings" id="generalWarnings"></div>
+          <div class="advice-panel">
+            <div class="advice-head">收纳建议 <span>近藤典子 × 达哥量化 × 适老镜F</span></div>
+            <div id="generalAdvice"></div>
+          </div>
+          <div class="source-note" id="generalSource"></div>
+          <div class="result-actions">
+            <button class="primary-btn" type="button" id="addGeneralBtn">加入项目汇总</button>
+            <button class="secondary-btn" type="button" id="copyGeneralBtn">复制核算结果</button>
+            <button class="secondary-btn" type="button" id="copyAdviceBtn">复制收纳建议</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="calculator-view" id="summaryView">
+      <div class="summary-header">
+        <div><span class="eyebrow">PROJECT SCHEDULE</span><h1>全屋柜体容量汇总</h1><p>先核算物品，再决定柜体。不同收纳方式不强行合并成一个“总件数”。</p></div>
+        <div class="summary-actions"><button class="primary-btn" id="reportBtn">生成收纳报告</button><button class="primary-btn" id="pptxBtn">导出 PPTX</button><button class="secondary-btn" id="copyAllAdviceBtn">复制全屋收纳建议</button><button class="secondary-btn" id="copyPromptBtn">复制 AI 复核提示词</button><button class="primary-btn" id="printBtn">打印 / 存 PDF</button></div>
+      </div>
+      <div class="summary-kpis">
+        <div><small>已核算条目</small><strong id="kpiCabinets">0</strong><span>项</span></div>
+        <div><small>鞋类理论容量</small><strong id="kpiShoes">0</strong><span>双</span></div>
+        <div><small>挂衣理论容量</small><strong id="kpiHang">0</strong><span>件</span></div>
+        <div><small>叠衣 + 抽屉</small><strong id="kpiFold">0</strong><span>件</span></div>
+      </div>
+      <div class="summary-table-wrap">
+        <table>
+          <thead><tr><th>编号 / 位置</th><th>类型</th><th>柜体尺寸</th><th>容量结果</th><th>复核状态</th><th></th></tr></thead>
+          <tbody id="summaryBody"></tbody>
+        </table>
+        <div class="empty-state" id="emptySummary"><span>＋</span><b>还没有柜体记录</b><p>在「全屋速算」页选好场景与物品、填完四个尺寸后，点「加入项目汇总」。一个柜子可以按物品拆成多条记录。</p></div>
+      </div>
+      <div class="summary-footer">
+        <div class="rule-card"><b>核算边界</b><p>本工具用于方案初审、客户沟通和容量对比，不替代现场复尺、五金样本、门板开启、安装及施工图深化。</p></div>
+        <div class="data-actions"><button class="text-btn" id="exportBtn">导出项目数据</button><label class="text-btn file-label">导入项目数据<input type="file" id="importInput" accept="application/json"></label></div>
+      </div>
+    </section>
+    <section class="calculator-view" id="reportView">
+      <div class="report-toolbar">
+        <button class="secondary-btn" id="backFromReportBtn">← 返回汇总</button>
+        <button class="primary-btn" id="printReportBtn">打印 / 存 PDF</button>
+        <button class="secondary-btn" id="pptxFromReportBtn">导出 PPTX</button>
+      </div>
+      <div id="reportBody"></div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <dialog id="helpDialog">
+    <button class="dialog-close" aria-label="关闭">×</button>
+    <span class="eyebrow">使用说明</span>
+    <h2>聿集收纳速算系统 · 三步完成容量核算</h2>
+    <ol><li><b>先选场景与物品。</b>物品库覆盖玄关、厨房、卫浴、家政、衣帽、公共储物、书房、儿童兴趣和大件储藏。</li><li><b>只填四个尺寸。</b>录入柜体总长、单格宽、总高、总深；板厚、层板和取放余量由系统自动扣减。</li><li><b>加入项目汇总。</b>复制 AI 复核提示词，检查结构、动线、五金、承重、通风和现场未知项。</li></ol>
+    <div class="dialog-note"><b>手机安装</b><p>安卓 Chrome：菜单 → 添加到主屏幕。iPhone Safari：分享 → 添加到主屏幕。</p></div>
+    <div class="dialog-note"><b>参数来源</b><p>参考《万物与尺度》鞋、衣物尺寸证据，CICI 衣物与鞋子尺寸资料，以及聿集住宅设计系统的收纳量化方法。OCR 或经验值只用于初审。</p></div>
+    <div class="dialog-note"><b>访问密码</b><p>本工具仅限公司内部使用。首次打开需输入访问密码，勾选「记住本机」后 7 天内免重复输入；点顶栏「锁定」可退出登录。密码由设计总监统一发放。</p></div>
+  </dialog>
+
+  <dialog id="authSettingDialog">
+    <button class="dialog-close" id="authSettingClose" aria-label="关闭">×</button>
+    <span class="eyebrow">访问管理</span>
+    <h2>密码设置</h2>
+    <div id="authSettingBody"></div>
+  </dialog>
+
+  <script src="./pptxgen.bundle.js" defer></script>
+  <script src="./advice.js" defer></script>
+  <script src="./auth.js" defer></script>
+  <script src="./app.js" defer></script>
+  <script src="./general.js" defer></script>
+  <script src="./report.js" defer></script>
+</body>
+</html>
