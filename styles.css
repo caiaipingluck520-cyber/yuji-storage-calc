@@ -5,6 +5,7 @@
 @media print{body{background:#fff}.topbar,.mode-tabs,.project-meta,.result-actions,.summary-actions,.data-actions,.input-panel,.toast{display:none!important}.app-shell{max-width:none;padding:0}.calculator-view{display:none!important}#summaryView{display:block!important}.summary-header{background:#fff;color:var(--ink);border-bottom:3px solid var(--ink)}.summary-header p{color:var(--muted)}.summary-kpis>div,.summary-table-wrap,.rule-card{box-shadow:none}.summary-table-wrap{overflow:visible}table{min-width:0}th,td{padding:9px}.summary-footer{grid-template-columns:1fr}}
 .mode-tabs.two-tabs{grid-template-columns:repeat(2,1fr)}
 
+.context-hide{display:none!important}
 .shoe-lay-field{grid-column:1/-1}
 .shoe-lay-field small{display:block;color:var(--muted);font-size:.7rem;margin-top:4px;font-weight:500;line-height:1.5}
 

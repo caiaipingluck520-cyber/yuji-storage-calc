@@ -251,6 +251,12 @@ function applySceneDefaults(){
 function applyObjectDefaults(){
   const item=selectedObject(); const isCustom=(document.getElementById('generalItem').value==='custom');
   const box=document.getElementById('customItemBox'); if(box) box.hidden=!isCustom;
+  // 按当前物品显隐专属字段：只显示与当前物品相关的信息，无关设置不出现
+  const methodNow=isCustom?((document.getElementById('customMethod')||{}).value||'shelf-row'):item.method;
+  const isShoeItem=!isCustom&&item.category==='鞋类';
+  const isHangItem=methodNow==='hang';
+  const shoeBox=document.querySelector('.context-shoe'); if(shoeBox)shoeBox.classList.toggle('context-hide',!isShoeItem);
+  const railBox=document.querySelector('.context-rail'); if(railBox)railBox.classList.toggle('context-hide',!isHangItem);
   document.getElementById('generalMethod').value=item.method;
   document.getElementById('generalModuleHeight').value=item.moduleHeight;
   document.getElementById('generalStackQty').value=item.stackQty;
@@ -357,6 +363,7 @@ function initGeneral(){
   applyObjectDefaults();
   document.getElementById('generalScene').addEventListener('change',()=>{applySceneDefaults();populateGeneralItems();});
   document.getElementById('generalItem').addEventListener('change',applyObjectDefaults);
+  var _cm=document.getElementById('customMethod'); if(_cm)_cm.addEventListener('change',applyObjectDefaults);
   document.getElementById('generalForm').addEventListener('input',renderGeneral);
   document.getElementById('addGeneralBtn').addEventListener('click',()=>addItem(lastGeneralResult));
   document.getElementById('copyGeneralBtn').addEventListener('click',()=>copyText(generalResultText(lastGeneralResult),'全屋物品核算结果已复制'));
