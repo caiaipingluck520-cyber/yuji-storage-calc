@@ -1,5 +1,5 @@
 /*!
- * auth.js · 聿集收纳速算系统 — 访问密码门 + 密码管理（授权/可修改）
+ * auth.js · 聿集生活收纳规划系统 — 访问密码门 + 密码管理（授权/可修改）
  * ------------------------------------------------------------------
  * 机制：
  *  ① 主密码（出厂）以「盐 + 5000 次迭代 SHA-256」哈希写在文件里（FACTORY_HASH），源码不含明文
@@ -135,7 +135,7 @@
   // ===== 密码门 =====
   function buildGate() {
     var brand = document.querySelector('.brand strong');
-    var name = brand ? brand.textContent : '聿集收纳速算系统';
+    var name = brand ? brand.textContent : '聿集生活收纳规划系统';
     var gate = document.createElement('div');
     gate.id = 'authGate';
     gate.setAttribute('role', 'dialog');

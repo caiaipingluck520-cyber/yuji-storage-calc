@@ -121,7 +121,7 @@
     out += page(
       '<div class="rpt-cover">' +
         '<div class="rpt-brand"><i></i><i></i><i></i><i></i></div>' +
-        '<div class="rpt-brandname">聿集收纳速算系统</div>' +
+        '<div class="rpt-brandname">聿集生活收纳规划系统</div>' +
         '<h1>全屋收纳量化统计表</h1>' +
         '<div class="rpt-rule"></div>' +
         '<table class="rpt-cover-tb">' +
@@ -249,7 +249,7 @@
         '<li>本表不含报价；报价与五金清单另行提供。</li>' +
       '</ul>' +
       '<div class="rpt-sign"><span>设计师签字：__________</span><span>客户确认：__________</span><span>日期：' + esc(d.date) + '</span></div>' +
-      '<p class="rpt-foot">聿集整装 · 聿集收纳速算系统 出品</p>');
+      '<p class="rpt-foot">聿集整装 · 聿集生活收纳规划系统 出品</p>');
 
     host.innerHTML = out;
     switchView('report');
@@ -312,7 +312,7 @@
         var c = pptx.addSlide();
         c.background = { color: INK };
         c.addShape(pptx.ShapeType.rect, { x: 0, y: 2.05, w: 1.1, h: 0.06, fill: { color: GOLD } });
-        c.addText('聿集收纳速算系统', { x: 0.9, y: 1.35, w: 8, h: 0.4, fontSize: 14, color: 'F4B942', fontFace: FONT, charSpacing: 2 });
+        c.addText('聿集生活收纳规划系统', { x: 0.9, y: 1.35, w: 8, h: 0.4, fontSize: 14, color: 'F4B942', fontFace: FONT, charSpacing: 2 });
         c.addText('全屋收纳量化统计表', { x: 0.9, y: 2.3, w: 8.4, h: 0.9, fontSize: 40, bold: true, color: 'FFFFFF', fontFace: FONT });
         c.addText([
           { text: '客户：' + (d.client || '未提供') + '　　', options: {} },

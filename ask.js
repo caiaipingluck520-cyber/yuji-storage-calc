@@ -47,9 +47,42 @@
     return window.objectLibrary || [];
   }
 
+  // ---------- 中文数字 → 阿拉伯数字（"一米二"→"1.2米"，"两米"→"2米"，"三点五"→"3.5"） ----------
+  var ZH_D = { '零':0,'一':1,'二':2,'两':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9 };
+  function zhInt(s) {
+    if (/^[0-9]+$/.test(s)) return s;
+    var rest = s.replace(/^十/, '一十'), m, total = 0;
+    m = rest.match(/^([一二两三四五六七八九]?)百([一二两三四五六七八九]?十)?([一二三四五六七八九]?)$/);
+    if (m && m[0]) {
+      total += (m[1] ? ZH_D[m[1]] : 1) * 100;
+      total += m[2] ? (m[2].replace('十', '').length ? ZH_D[m[2].replace('十', '')] : 1) * 10 : 0;
+      total += m[3] ? ZH_D[m[3]] : 0;
+      return String(total);
+    }
+    m = rest.match(/^([一二两三四五六七八九])?十([一二三四五六七八九])?$/);
+    if (m) { total = (m[1] ? ZH_D[m[1]] : 1) * 10 + (m[2] ? ZH_D[m[2]] : 0); return String(total); }
+    m = rest.match(/^([一二两三四五六七八九])$/);
+    if (m) return String(ZH_D[m[1]]);
+    // 非标准结构（如"二五""二四"做小数用）：全部是单个数字才逐字直转
+    var allDigits = s.split('').every(function (c) { return ZH_D[c] !== undefined; });
+    return allDigits ? s.split('').map(function (c) { return String(ZH_D[c]); }).join('') : '';
+  }
+  function zhNum(s) {
+    if (s.indexOf('点') >= 0) return s.split('点').map(zhInt).join('.');
+    return zhInt(s);
+  }
+  function zhDims(str) {
+    // 数字+单位+后续小数："一米二"→"1.2米"，"1米2"→"1.2米"，"1米25"→"1.25米"
+    str = str.replace(/([零一二两三四五六七八九十百]+)\s*(米|厘米|毫米)\s*([零一二两三四五六七八九十百]+)/g, function (m, a, u, b) { return zhNum(a) + '.' + zhNum(b) + u; });
+    str = str.replace(/(\d+(?:\.\d+)?)\s*(米|厘米|毫米)\s*(\d{1,2})(?!\d)/g, function (m, a, u, b) { return a + '.' + b + u; });
+    // 整段中文数字（含"点""百"）："两米"→"2米"，"三点五米"→"3.5米"，"二百四十厘米"→"240厘米"
+    str = str.replace(/[零一二两三四五六七八九十百点]+/g, function (m) { return zhNum(m); });
+    return str;
+  }
+
   // ---------- 解析问句 ----------
   function parseQuestion(q) {
-    var text = String(q || '');
+    var text = zhDims(String(q || ''));
     var r = { scene: '', length: 0, height: 0, depth: 0, layers: 0, items: [], raw: text };
 
     Object.keys(SCENE_KEYS).forEach(function (sc) {
@@ -75,29 +108,52 @@
       r.depth = toMm(m3[5], m3[6]);
     }
 
-    // 关键字在前（"宽1200"）：若关键字紧跟在数字+单位之后（"1米宽"）则跳过，交给下一段
-    var reB = /(宽|长|高|深|进深)\s*度?\s*(?:约|是|为|有|：|:)?\s*(\d+(?:\.\d+)?)\s*(毫米|mm|厘米|cm|米|m)?/g, mb;
-    while ((mb = reB.exec(text))) {
-      if (/(\d+(?:\.\d+)?)(毫米|mm|厘米|cm|米|m)?$/.test(text.slice(0, mb.index))) continue;
-      var nB = parseFloat(mb[2]);
-      if (!mb[3] && nB < 100) continue;
-      var vB = toMm(mb[2], mb[3] || '');
-      if (mb[1] === '宽' || mb[1] === '长') r.length = r.length || vB;
-      else if (mb[1] === '高') r.height = r.height || vB;
-      else r.depth = r.depth || vB;
+    // ---------- 尺寸解析：顺序扫描，按句式统一归属 ----------
+    // 先扫出所有 关键字(宽/长/高/深) 与 数字+单位 token（按出现顺序）。
+    // 看第一个尺寸 token 是数字还是关键字，判定整句句式：
+    //   数字开头（"1米宽2米高"）→ 每个数字归属其【后面】紧贴的关键字
+    //   关键字开头（"宽1.8米高2.2米"、"长1200 高700"）→ 每个关键字归属其【后面】最近的数字
+    var tokens = [];
+    var tokenRe = /(宽|长|高|深|进深)\s*度?|(\d+(?:\.\d+)?)\s*(毫米|mm|厘米|cm|米|m)?/g, tm;
+    while ((tm = tokenRe.exec(text))) {
+      if (tm[1]) tokens.push({ type: 'key', key: tm[1], start: tm.index, end: tm.index + tm[0].length });
+      else if (tm[2] !== undefined && tm[2] !== '') tokens.push({ type: 'num', val: toMm(tm[2], tm[3] || ''), raw: tm[2], hasUnit: !!tm[3], start: tm.index, end: tm.index + tm[0].length });
     }
-
-    // 数字在前（"1米宽"），数字与关键字紧邻
-    var reA = /(\d+(?:\.\d+)?)\s*(毫米|mm|厘米|cm|米|m)?\s*(?:的)?\s*(宽|长|高|深|进深)/g, ma;
-    while ((ma = reA.exec(text))) {
-      var nA = parseFloat(ma[1]);
-      if (!ma[2] && nA < 100) continue;
-      var vA = toMm(ma[1], ma[2] || '');
-      if (ma[3] === '宽' || ma[3] === '长') r.length = r.length || vA;
-      else if (ma[3] === '高') r.height = r.height || vA;
-      else r.depth = r.depth || vA;
+    // 过滤：无单位的裸数字 <100 视为非尺寸（如"5层板"的5）
+    tokens = tokens.filter(function (t) { return t.type === 'key' || t.hasUnit || t.val >= 100; });
+    var assign = function (slot, v) { if (slot === 'length') { if (!r.length) r.length = v; } else if (slot === 'height') { if (!r.height) r.height = v; } else { if (!r.depth) r.depth = v; } };
+    var keySlot = function (k) { return (k === '宽' || k === '长') ? 'length' : (k === '高' ? 'height' : 'depth'); };
+    var firstSize = tokens[0];
+    var gapLen = function (a, b) { var g = text.slice(a, b); return /\d/.test(g) ? Infinity : g.length; };
+    if (firstSize && firstSize.type === 'num') {
+      // 数字开头句式（含混合）：每个数字归属"最近的空闲关键字"（前后都看，取 gap 更短且不含数字的一侧）
+      var usedKey = {};
+      tokens.forEach(function (t, i) {
+        if (t.type !== 'num') return;
+        var prev = tokens[i - 1], next = tokens[i + 1];
+        var lp = prev && prev.type === 'key' && !usedKey[i - 1] ? gapLen(prev.end, t.start) : Infinity;
+        var ln = next && next.type === 'key' && !usedKey[i + 1] ? gapLen(t.end, next.start) : Infinity;
+        // 数字带单位且与后面关键字隔空白 → 该数字已完整，不向后归属
+        if (next && next.type === 'key' && t.hasUnit && /^\s/.test(text.slice(t.end, next.start))) ln = Infinity;
+        if (lp === Infinity && ln === Infinity) return;
+        var pick = lp <= ln ? prev : next, idx = lp <= ln ? i - 1 : i + 1;
+        usedKey[idx] = 1;
+        assign(keySlot(pick.key), t.val);
+      });
+    } else {
+      // 关键字在前句式："宽1200 高700" / "长一米二，高70厘米" → 关键字归其后面最近的数字
+      var GAP_OK = /^[\s，,。、的约是为有在：:]*$/;
+      tokens.forEach(function (t, i) {
+        if (t.type !== 'key') return;
+        for (var j = i + 1; j < tokens.length; j++) {
+          var n = tokens[j];
+          if (n.type === 'key') break;                     // 中间隔了别的关键字：该关键字无自己的数字
+          var gap = text.slice(t.end, n.start);
+          if (GAP_OK.test(gap)) { assign(keySlot(t.key), n.val); }
+          break;
+        }
+      });
     }
-
     var ml = text.match(/(\d+)\s*(?:层板|隔层|层格|层)/);
     if (ml) r.layers = Math.max(2, Math.min(12, parseInt(ml[1], 10)));
 
