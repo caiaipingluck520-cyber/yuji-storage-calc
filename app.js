@@ -8,17 +8,17 @@ const fmt = value => Math.round(value).toLocaleString('zh-CN');
 
 const shoeTypes = {
   mixed: {name:'综合常用鞋', pitch:190, height:170, depth:350, note:'男女常用鞋混合；并排口径。'},
-  womenFlat: {name:'女平底 / 小皮鞋', pitch:165, height:120, depth:300, note:'女鞋宽 80mm（万物与尺度实测）×2 + 缝'},
+  womenFlat: {name:'女平底 / 小皮鞋', pitch:165, height:120, depth:300, note:'女鞋宽 80mm（实测数据库）×2 + 缝'},
   womenSport: {name:'女运动 / 厚底鞋', pitch:175, height:150, depth:320, note:'鞋高约 15cm'},
-  men: {name:'男鞋 / 运动鞋', pitch:205, height:170, depth:350, note:'男鞋宽 100mm（万物与尺度实测）×2 + 缝'},
+  men: {name:'男鞋 / 运动鞋', pitch:205, height:170, depth:350, note:'男鞋宽 100mm（实测数据库）×2 + 缝'},
   child: {name:'儿童鞋', pitch:135, height:150, depth:260, note:'按年龄复核鞋长（1-2岁140 → 11-13岁245）'},
   shortBoot: {name:'短靴', pitch:205, height:200, depth:360, note:'靴筒不额外占宽，鞋高约 16–18cm'},
   highBoot: {name:'长靴 / 高筒雨靴', pitch:330, height:450, depth:380, note:'鞋面宽 158mm（实测）×2 并按靴筒留缝'},
   guest: {name:'客用拖鞋', pitch:235, height:120, depth:300, note:'客拖实测 280×115，成对并放'}
 };
-// 摆放口径：pitch 基准是「并排直放」实测口径；错位/斜插按达哥量化口径折算
+// 摆放口径：pitch 基准是「并排直放」实测口径；错位/斜插按量化收纳口径折算
 const layModes = {
-  stagger: {name:'错位摆放（达哥口径 · 每米约 8 双）', factor:0.61, note:'相邻两双错开半只，实测男鞋约 125mm/双、女鞋约 100mm/双，与达哥「100cm 宽放 8 双男鞋 / 10 双女鞋」一致。'},
+  stagger: {name:'错位摆放（口径 · 每米约 8 双）', factor:0.61, note:'相邻两双错开半只，实测男鞋约 125mm/双、女鞋约 100mm/双，与「100cm 宽放 8 双男鞋 / 10 双女鞋」一致。'},
   side:    {name:'并排直放（保守 · 每米约 5 双）', factor:1.00, note:'两鞋并排、一目了然，取放最顺手，但占宽约为错位摆放的 1.6 倍。'}
 };
 

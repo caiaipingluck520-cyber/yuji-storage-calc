@@ -65,7 +65,7 @@
   <header class="topbar">
     <div class="brand">
       <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-      <div><strong>聿集收纳速算系统</strong><span>整装收纳量化 · V1.6</span></div>
+      <div><strong>聿集收纳速算系统</strong><span>整装收纳量化 · V1.7</span></div>
     </div>
     <div class="top-actions">
       <button class="ghost-btn" id="installBtn" hidden>安装到手机</button>
@@ -101,11 +101,49 @@
             <div class="field-grid two">
               <label>使用场景<select id="generalScene"></select></label>
               <label>收纳物品<select id="generalItem"></select></label>
-              <label class="shoe-lay-field">鞋类摆放口径<select id="generalShoeLay"><option value="stagger" selected>错位摆放（达哥口径 · 每米约 8 双）</option><option value="side">并排直放（保守 · 每米约 5 双）</option></select><small>仅对「鞋类」生效：错位＝相邻两双错开半只；并排＝两鞋平放、取放最顺手但占宽约 1.6 倍。</small></label>
+              <label class="shoe-lay-field">鞋类摆放口径<select id="generalShoeLay"><option value="stagger" selected>错位摆放（每米约 8 双）</option><option value="side">并排直放（保守 · 每米约 5 双）</option></select><small>仅对「鞋类」生效：错位＝相邻两双错开半只；并排＝两鞋平放、取放最顺手但占宽约 1.6 倍。</small></label>
               <label class="shoe-lay-field">单件占宽 / 厚度<input type="number" id="generalPitch" value="0" min="0" step="5"><small id="pitchHint">0 或留空＝用物品库默认值。书按"每本厚度"、衣服按"每件占杆宽"、鞋按"每双占宽"理解；这一项的直接决定容量，务必按客户实物改。</small></label>
               <label class="shoe-lay-field">挂衣方式<select id="generalRails"><option value="auto" selected>自动（短衣双层 / 长衣单杆）</option><option value="single">强制单杆</option><option value="double">强制上下双杆</option></select><small>仅对「挂杆悬挂」生效。长衣（衣长 &gt;1050mm，如羽绒服、大衣）默认单杆：双杆需净高 ≥ 2×衣长+100mm，且上杆要抬手掏、衣摆会压住下排。</small></label>
             </div>
             <div class="item-context" id="itemContext"></div>
+
+            <div class="custom-item" id="customItemBox" hidden>
+              <div class="field-grid three compact-top">
+                <label>物品名称<input id="customName" placeholder="如 茶具套装" autocomplete="off"></label>
+                <label>计数单位<input id="customUnit" value="件" autocomplete="off"></label>
+                <label>存放方式<select id="customMethod">
+                  <option value="shelf-row">层板单排</option>
+                  <option value="shelf-grid">层板双排/网格</option>
+                  <option value="stack-group">成摞叠放</option>
+                  <option value="vertical">直立槽位</option>
+                  <option value="hang">挂杆悬挂</option>
+                  <option value="volume">大件独立</option>
+                </select></label>
+              </div>
+              <div class="field-grid three compact-top">
+                <label>单件宽 mm<input type="number" id="customW" value="200" min="5" step="5"></label>
+                <label>单件深 mm<input type="number" id="customD" value="200" min="5" step="5"></label>
+                <label>单件高 mm<input type="number" id="customH" value="200" min="5" step="5"></label>
+              </div>
+              <p class="method-note">库内没有的物品用这里：按客户实物量取<b>最长/最厚</b>的那一件填进来，不要按平均尺寸估。</p>
+            </div>
+
+            <div class="ask-box">
+              <div class="ask-title">自主提问 <small>答案只使用本场景物品库里的条目</small></div>
+              <div class="ask-row">
+                <textarea id="askInput" rows="2" placeholder="例如：1米宽2米高5层板的茶水柜，按业主喜好建议怎么放置和收纳？"></textarea>
+                <button type="button" class="primary-btn" id="askBtn">问一下</button>
+              </div>
+              <div class="ask-examples" id="askExamples">
+                <button type="button" data-ask="1米宽2米高5层板的茶水柜，建议怎么放置和收纳？">例·茶水柜怎么放</button>
+                <button type="button" data-ask="1.2米宽2.2米高的玄关鞋柜，建议怎么分层放鞋？">例·玄关鞋柜分层</button>
+                <button type="button" data-ask="1.8米宽2.2米高、深320的书柜，建议放哪些书、各放多少？">例·书柜怎么放书</button>
+                <button type="button" data-ask="2.4米宽2.6米高的衣柜，建议怎么分区？">例·衣柜分区</button>
+              </div>
+              <div class="ask-hint" id="askSceneHint"></div>
+              <div id="askAnswer"></div>
+              <button type="button" class="secondary-btn ask-copy" id="askCopyBtn">复制方案建议</button>
+            </div>
           </fieldset>
 
           <fieldset>
@@ -123,7 +161,7 @@
             <div class="field-grid two">
               <label>柜体编号 / 位置<input type="text" id="generalLabel" value="C1 玄关综合柜" autocomplete="off"></label>
               <label>使用者身高<input type="number" id="generalUserHeight" value="1600" min="1000" max="2000" step="10"><small style="display:block;color:var(--muted);font-size:.7rem;font-weight:500">用来算"够得到 / 视线 / 黄金区"（身高×1.2 / ×0.9 / ×0.4）</small></label>
-              <label class="span-2">家庭成员与身高<input id="familyMembers" placeholder="如 业主:1750, 太太:1620, 孩子:1200, 父母:1580（写 cm 或 mm 都可以）" autocomplete="off"><small style="display:block;color:var(--muted);font-size:.7rem;font-weight:500">用于按人算"够得到/视线/黄金区"，也是适老与儿童可达的依据</small></label>
+              <label class="span-2">家庭成员与身高<input id="familyMembers" placeholder="如 业主:1750, 太太:1620, 孩子:1200, 父母:1580（写 cm 或 mm 都可以）" autocomplete="off"><small style="display:block;color:var(--muted);font-size:.7rem;font-weight:500">用于按人算"够得到/视线/黄金区"，也是人体工学与儿童可达的依据</small></label>
               <label>客户实际数量<input type="number" id="generalNeedQty" value="0" min="0" step="1"><small style="display:block;color:var(--muted);font-size:.7rem;font-weight:500">这项物品客户家实际有多少件/双/口；0＝未提供</small></label>
               <label>未来增量<select id="generalGrowth"><option value="0">不预留</option><option value="0.15">15%</option><option value="0.2" selected>20%</option><option value="0.25">25%</option><option value="0.3">30%</option></select></label>
             </div>
@@ -159,7 +197,7 @@
           </div>
           <div class="warnings" id="generalWarnings"></div>
           <div class="advice-panel">
-            <div class="advice-head">收纳建议 <span>近藤典子 × 达哥量化 × 适老镜F</span></div>
+            <div class="advice-head">收纳建议 <span>按物品尺寸与柜体净空自动生成</span></div>
             <div id="generalAdvice"></div>
           </div>
           <div class="source-note" id="generalSource"></div>
@@ -211,9 +249,9 @@
     <button class="dialog-close" aria-label="关闭">×</button>
     <span class="eyebrow">使用说明</span>
     <h2>聿集收纳速算系统 · 三步完成容量核算</h2>
-    <ol><li><b>先选场景与物品。</b>物品库覆盖玄关、厨房、卫浴、家政、衣帽、公共储物、书房、儿童兴趣和大件储藏。</li><li><b>只填四个尺寸。</b>录入柜体总长、单格宽、总高、总深；板厚、层板和取放余量由系统自动扣减。</li><li><b>加入项目汇总。</b>复制 AI 复核提示词，检查结构、动线、五金、承重、通风和现场未知项。</li></ol>
+    <ol><li><b>先选场景与物品。</b>物品库覆盖玄关、厨房、餐厅茶饮、卫浴、家政、衣帽、公共储物、书房、儿童兴趣和大件储藏；库内没有的物品可自定义尺寸。每页下方的「自主提问」可按当前场景直接问方案。</li><li><b>只填四个尺寸。</b>录入柜体总长、单格宽、总高、总深；板厚、层板和取放余量由系统自动扣减。</li><li><b>加入项目汇总。</b>复制 AI 复核提示词，检查结构、动线、五金、承重、通风和现场未知项。</li></ol>
     <div class="dialog-note"><b>手机安装</b><p>安卓 Chrome：菜单 → 添加到主屏幕。iPhone Safari：分享 → 添加到主屏幕。</p></div>
-    <div class="dialog-note"><b>参数来源</b><p>参考《万物与尺度》鞋、衣物尺寸证据，CICI 衣物与鞋子尺寸资料，以及聿集住宅设计系统的收纳量化方法。OCR 或经验值只用于初审。</p></div>
+    <div class="dialog-note"><b>参数来源</b><p>参考内部实测物品尺寸数据库（鞋类、衣物、厨具、卫浴、收纳箱等 181 项）与聿集量化收纳口径。库内未收录的物品，用「＋ 自定义物品」按实物量取填写；经验值与估算值只用于初审。</p></div>
     <div class="dialog-note"><b>访问密码</b><p>本工具仅限公司内部使用。首次打开需输入访问密码，勾选「记住本机」后 7 天内免重复输入；点顶栏「锁定」可退出登录。密码由设计总监统一发放。</p></div>
   </dialog>
 
@@ -230,5 +268,6 @@
   <script src="./app.js" defer></script>
   <script src="./general.js" defer></script>
   <script src="./report.js" defer></script>
+  <script src="./ask.js" defer></script>
 </body>
 </html>

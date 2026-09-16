@@ -1,0 +1,384 @@
+/*!
+ * ask.js · 自主提问（按场景物品库给出收纳方案）
+ * ------------------------------------------------------------------
+ * 设计原则：
+ *  ① 回答只使用「该使用场景」物品库里的条目，绝不引入库外物品；
+ *  ② 所有数量都由库内实测尺寸 + 柜体净尺寸算出来，可复核；
+ *  ③ 柜体尺寸 / 层数可以从问句里解析；
+ *  ④ 衣帽类按「挂衣区 + 层板区」分区，其余场景按每类物品高度排层；
+ *  ⑤ 无网络、无模型依赖——纯规则计算，现场秒出答案。
+ */
+(function () {
+  'use strict';
+
+  var SCENE_KEYS = {
+    '玄关': ['玄关', '进门', '入户', '门厅', '鞋柜', '换鞋'],
+    '厨房': ['厨房', '灶', '锅', '碗', '餐具', '米桶', '调料', '备餐', '洗碗', '橱柜'],
+    '餐厅/茶饮': ['茶', '茶饮', '餐边', '酒', '水吧', '咖啡', '茶杯', '餐柜'],
+    '卫浴': ['卫浴', '浴室', '卫生间', '洗手', '洗漱', '毛巾', '浴巾', '洗面', '吹风'],
+    '家政': ['家政', '阳台', '清洁', '吸尘器', '拖把', '洗衣', '洗涤', '工具柜', '扫地机'],
+    '衣帽': ['衣帽', '衣柜', '挂衣', '衣服', '衣橱', '被褥', '行李箱', '裤架'],
+    '客厅/公共': ['客厅', '电视', '遥控', '药箱', '公共', '杂物'],
+    '书房': ['书柜', '书房', '书', '文件', '办公', '资料', '绘本'],
+    '儿童/兴趣': ['儿童', '孩子', '玩具', '绘本', '兴趣', '乐器', '画筒'],
+    '大件储藏': ['大件', '储藏', '储物间', '行李箱', '风扇', '折叠椅', '备用', '画筒']
+  };
+
+  var SCENE_PRIORITY = {
+    '餐厅/茶饮': ['茶壶', '茶杯', '茶罐', '茶海', '泡茶盘', '茶漏'],
+    '玄关': ['高筒雨靴', '男鞋', '女鞋', '儿童鞋', '客用拖鞋', '鞋盒', '长伞'],
+    '厨房': ['中式炒锅', '西式平底锅', '米饭碗', '大号浅盘', '调味瓶', '米桶', '砧板', '收纳罐'],
+    '卫浴': ['洗面奶', '乳液瓶', '牙刷杯', '毛巾', '浴巾', '卷纸', '吹风机'],
+    '家政': ['吸尘器', '扫地机器人', '清洁剂', '洗涤', '纸巾', '拖把', '折叠椅'],
+    '衣帽': ['大衣', '羽绒服', '女装短衣', '男装短衣', '真空压缩被', '针织帽'],
+    '客厅/公共': ['遥控器', '充电器', '排插', '医药箱', '纸巾'],
+    '书房': ['A4 书/资料', '正16开书', 'A5 书', '正32开书', '文件盒', '双孔文件夹'],
+    '儿童/兴趣': ['大龄绘本', '低龄绘本', '玩具收纳箱', '乐高收纳盒'],
+    '大件储藏': ['20寸登机箱', '24寸行李箱', '28寸行李箱', '32寸行李箱', '塑料堆叠椅', '折叠椅']
+  };
+
+  function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
+  function fmt(n) { return Math.round(n).toLocaleString('zh-CN'); }
+  // 说明：下方拼 HTML 的内容只有两类——本系统物品库的固定字段（库内数据）与由问句算出的数字；
+  // 任何来自用户输入的文本（场景名等）都经过 esc() 转义，因此不使用 innerHTML 注入用户原文。
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function lib() {
+    if (window.YujiGeneral && window.YujiGeneral.library) return window.YujiGeneral.library();
+    return window.objectLibrary || [];
+  }
+
+  // ---------- 解析问句 ----------
+  function parseQuestion(q) {
+    var text = String(q || '');
+    var r = { scene: '', length: 0, height: 0, depth: 0, layers: 0, items: [], raw: text };
+
+    Object.keys(SCENE_KEYS).forEach(function (sc) {
+      if (r.scene) return;
+      SCENE_KEYS[sc].forEach(function (k) { if (!r.scene && text.indexOf(k) >= 0) r.scene = sc; });
+    });
+
+    function toMm(v, unit) {
+      var n = parseFloat(v);
+      if (unit && /毫米|mm/i.test(unit)) return n;
+      if (unit && /厘米|cm/i.test(unit)) return n * 10;
+      if (unit && /米|m/i.test(unit)) return n * 1000;
+      if (n <= 20) return n * 1000;
+      if (n <= 200) return n * 10;
+      return n;
+    }
+
+    // 三连：1000×2000×400 / 1米*2米*0.4米
+    var m3 = text.match(/(\d+(?:\.\d+)?)\s*(毫米|mm|厘米|cm|米|m)?\s*[×xX*＊]\s*(\d+(?:\.\d+)?)\s*(毫米|mm|厘米|cm|米|m)?\s*[×xX*＊]\s*(\d+(?:\.\d+)?)\s*(毫米|mm|厘米|cm|米|m)?/);
+    if (m3) {
+      r.length = toMm(m3[1], m3[2]);
+      r.height = toMm(m3[3], m3[4]);
+      r.depth = toMm(m3[5], m3[6]);
+    }
+
+    // 关键字在前（"宽1200"）：若关键字紧跟在数字+单位之后（"1米宽"）则跳过，交给下一段
+    var reB = /(宽|长|高|深|进深)\s*度?\s*(?:约|是|为|有|：|:)?\s*(\d+(?:\.\d+)?)\s*(毫米|mm|厘米|cm|米|m)?/g, mb;
+    while ((mb = reB.exec(text))) {
+      if (/(\d+(?:\.\d+)?)(毫米|mm|厘米|cm|米|m)?$/.test(text.slice(0, mb.index))) continue;
+      var nB = parseFloat(mb[2]);
+      if (!mb[3] && nB < 100) continue;
+      var vB = toMm(mb[2], mb[3] || '');
+      if (mb[1] === '宽' || mb[1] === '长') r.length = r.length || vB;
+      else if (mb[1] === '高') r.height = r.height || vB;
+      else r.depth = r.depth || vB;
+    }
+
+    // 数字在前（"1米宽"），数字与关键字紧邻
+    var reA = /(\d+(?:\.\d+)?)\s*(毫米|mm|厘米|cm|米|m)?\s*(?:的)?\s*(宽|长|高|深|进深)/g, ma;
+    while ((ma = reA.exec(text))) {
+      var nA = parseFloat(ma[1]);
+      if (!ma[2] && nA < 100) continue;
+      var vA = toMm(ma[1], ma[2] || '');
+      if (ma[3] === '宽' || ma[3] === '长') r.length = r.length || vA;
+      else if (ma[3] === '高') r.height = r.height || vA;
+      else r.depth = r.depth || vA;
+    }
+
+    var ml = text.match(/(\d+)\s*(?:层板|隔层|层格|层)/);
+    if (ml) r.layers = Math.max(2, Math.min(12, parseInt(ml[1], 10)));
+
+    // 物品：只认库内条目
+    var seen = {};
+    lib().forEach(function (it) {
+      if (seen[it.name]) return;
+      seen[it.name] = 1;
+      if (text.indexOf(it.name) >= 0) { r.items.push(it.name); return; }
+      var core = it.name.replace(/（[^）]*）/g, '').replace(/^[0-9.]+[A-Za-z寸升L]*\s*/, '').trim();
+      if (core.length >= 2 && text.indexOf(core) >= 0) r.items.push(it.name);
+    });
+    return r;
+  }
+
+  // ---------- 柜体与容量 ----------
+  function cabinet(over) {
+    var g = window.YujiGeneral;
+    var o = Object.assign({}, (g && g.cabinet ? g.cabinet() : {}), over || {});
+    var board = num(o.board) || 18;
+    var bays = Math.max(1, Math.ceil(num(o.length) / Math.max(200, num(o.bayWidth) || 600)));
+    var netWidth = Math.max(0, num(o.length) - board * (bays + 1));
+    var netHeight = Math.max(0, num(o.height) - (num(o.plinth) || 0) - (num(o.reserved) || 0) - board * 2);
+    var netDepth = Math.max(0, num(o.depth) - (num(o.depthLoss) || 30));
+    return { board: board, bays: bays, netWidth: netWidth, cellWidth: netWidth / bays, netHeight: netHeight, netDepth: netDepth,
+      length: num(o.length), height: num(o.height), depth: num(o.depth), plinth: num(o.plinth) };
+  }
+
+  function perLayer(item, cab) {
+    var gap = item.clearance || 10;
+    var across = Math.floor((cab.cellWidth + gap) / Math.max(1, item.w + gap));
+    var deep = Math.max(1, Math.min(4, Math.floor((cab.netDepth + gap) / Math.max(1, item.d + gap))));
+    var m = item.method;
+    if (m === 'volume' || m === 'vertical') deep = 1;
+    if (m === 'hang') return Math.max(0, Math.floor((cab.netWidth + gap) / Math.max(1, item.w + gap)));
+    return Math.max(0, across) * deep * Math.max(1, cab.bays) * Math.max(1, item.stackQty || 1);
+  }
+
+  function methodName(m) { return ({ 'shelf-row': '层板单排', 'shelf-grid': '层板网格', 'stack-group': '成摞叠放', 'vertical': '直立槽位', 'hang': '挂杆悬挂', 'volume': '大件独立' })[m] || '层板'; }
+  function clearOf(it) { return it.h + (it.method === 'hang' ? 100 : 40); }
+
+  // ---------- 生成答案 ----------
+  function answer(question, ctxOverride) {
+    var p = parseQuestion(question);
+    var over = Object.assign({}, ctxOverride || {});
+    var fromQ = [];
+    if (p.length) { over.length = p.length; fromQ.push('宽 ' + p.length); }
+    if (p.height) { over.height = p.height; fromQ.push('高 ' + p.height); }
+    if (p.depth) { over.depth = p.depth; fromQ.push('深 ' + p.depth); }
+    var cab = cabinet(over);
+    if (!cab.length || !cab.height) return { ok: false, text: '请先在左侧填写柜体尺寸（或直接在问题里写"1米宽2米高"），我再给方案。' };
+
+    var scene = p.scene || (window.YujiGeneral ? window.YujiGeneral.scene() : '玄关');
+    if (p.scene && window.YujiGeneral && window.YujiGeneral.setScene) window.YujiGeneral.setScene(scene);
+
+    var sceneItems = lib().filter(function (it) { return it.scene === scene; });
+    if (!sceneItems.length) return { ok: false, text: '没有找到「' + scene + '」场景的物品数据。' };
+
+    // 候选物品：问句点名的优先，其次按场景推荐顺序
+    var picked = [];
+    p.items.forEach(function (name) {
+      var hit = sceneItems.filter(function (it) { return it.name === name; })[0];
+      if (hit && picked.indexOf(hit) < 0) picked.push(hit);
+    });
+    (SCENE_PRIORITY[scene] || []).forEach(function (kw) {
+      sceneItems.forEach(function (it) { if (picked.indexOf(it) < 0 && it.name.indexOf(kw) >= 0 && picked.length < 7) picked.push(it); });
+    });
+    if (!picked.length) picked = sceneItems.slice(0, 5);
+
+    var plinth = cab.plinth, rows = [], zones = [], remainTxt = '';
+
+    // ===== 模式 A：问句给了层数 → 层高均匀 =====
+    if (p.layers) {
+      var L = Math.max(1, Math.min(12, p.layers));
+      var lc = Math.floor((cab.netHeight - (L - 1) * cab.board) / L);
+      var i = 0;
+      picked.slice().sort(function (a, b) { return b.h - a.h || b.w - a.w; }).forEach(function (it) {
+        if (i >= L) return;
+        var cap = perLayer(it, cab), bottom = plinth + i * (lc + cab.board);
+        rows.push({ no: i + 1, zone: '', name: it.name, unit: it.unit, dims: it.w + '×' + it.d + '×' + it.h,
+          cap: cap, method: methodName(it.method), from: bottom, to: bottom + lc, layerClear: lc,
+          suggest: cap < 1 ? 0 : Math.max(1, Math.floor(cap * (it.h > 200 ? 0.7 : 0.75))),
+          note: cap < 1 ? ('该层净高 ' + lc + 'mm 放不下（需要 ' + clearOf(it) + 'mm）') : '' });
+        i++;
+      });
+      if (L - rows.length > 0) remainTxt = '还有 ' + (L - rows.length) + ' 层空余：可放低频备品，或用收纳盒把小件合并。';
+    } else {
+      // ===== 模式 B：按物品高度分区排布 =====
+      var pool = picked.slice().sort(function (a, b) { return b.h - a.h || b.w - a.w; });
+      var hangs = pool.filter(function (it) { return it.method === 'hang'; });
+      var others = pool.filter(function (it) { return it.method !== 'hang'; });
+      var used = 0, zIdx = 0;
+
+      // ① 挂衣区
+      if (hangs.length) {
+        var longs = hangs.filter(function (it) { return it.h > 1050; });
+        var shorts = hangs.filter(function (it) { return it.h <= 1050; });
+        if (longs.length) {
+          var rodL = Math.max.apply(null, longs.map(function (x) { return x.h; })) + 100;
+          if (used + rodL + cab.board <= cab.netHeight) {
+            zIdx++;
+            var z1 = { zone: '长衣区（1 根杆）', no: zIdx, from: plinth + used, to: plinth + used + rodL, h: rodL };
+            zones.push(z1);
+            longs.forEach(function (it) {
+              var cap = perLayer(it, cab);
+              rows.push({ no: zIdx, zone: z1.zone, name: it.name, unit: it.unit, dims: it.w + '×' + it.d + '×' + it.h, cap: cap,
+                method: '挂杆悬挂', from: z1.from, to: z1.to, layerClear: rodL,
+                suggest: Math.max(1, Math.floor(cap * 0.8)), note: '' });
+            });
+            used += rodL + cab.board;
+          }
+        }
+        if (shorts.length) {
+          var rodS = Math.max.apply(null, shorts.map(function (x) { return x.h; })) + 100;
+          var avail = cab.netHeight - used;
+          var fitRods = Math.floor((avail + cab.board) / (rodS + cab.board));
+          var rods = Math.max(0, Math.min(2, fitRods));
+          if (rods >= 1) {
+            var zoneH = rodS * rods + cab.board * (rods - 1);
+            zIdx++;
+            var z2 = { zone: '短衣区（' + (rods === 2 ? '上下双杆' : '1 根杆') + '）', no: zIdx, from: plinth + used, to: plinth + used + zoneH, h: zoneH };
+            zones.push(z2);
+            shorts.forEach(function (it) {
+              var cap = perLayer(it, cab) * rods;
+              rows.push({ no: zIdx, zone: z2.zone, name: it.name, unit: it.unit, dims: it.w + '×' + it.d + '×' + it.h, cap: cap, pitch: it.w,
+                method: '挂杆悬挂 ×' + rods, from: z2.from, to: z2.to, layerClear: rodS,
+                suggest: Math.max(1, Math.floor(cap * 0.8)), note: '' });
+            });
+            used += zoneH + cab.board;
+          } else if (longs.length) {
+            shorts.forEach(function (it) {
+              var cap = perLayer(it, cab);
+              rows.push({ no: 1, zone: '与长衣区共用一根杆', name: it.name, unit: it.unit, dims: it.w + '×' + it.d + '×' + it.h, cap: cap, pitch: it.w,
+                method: '挂杆悬挂', from: zones[0] ? zones[0].from : plinth, to: zones[0] ? zones[0].to : plinth, layerClear: zones[0] ? zones[0].h : 0,
+                suggest: Math.max(1, Math.floor(cap * 0.6)), note: '与长衣共用杆，两类合计别超过一根杆的总量' });
+            });
+            remainTxt = '柜高不够再排一根短衣杆：若要短衣上下双杆（净高约 ' + (rodS * 2 + 100 + cab.board) + 'mm），长衣需要另设一柜或以挂衣间解决。';
+          }
+        }
+      }
+
+      // ② 层板 / 叠放区
+      var n = rows.filter(function (r) { return r.zone === ''; }).length;
+      others.forEach(function (it) {
+        var need = clearOf(it), cap = perLayer(it, cab);
+        if (cap < 1) {
+          rows.push({ no: 0, zone: '', name: it.name, unit: it.unit, dims: it.w + '×' + it.d + '×' + it.h, cap: 0, method: methodName(it.method),
+            from: 0, to: 0, layerClear: 0, suggest: 0, note: '单格净宽 ' + Math.round(cab.cellWidth) + 'mm 放不下（需要净宽 ' + it.w + 'mm）' });
+          return;
+        }
+        if (used + need + cab.board > cab.netHeight + 1) {
+          rows.push({ no: 0, zone: '', name: it.name, unit: it.unit, dims: it.w + '×' + it.d + '×' + it.h, cap: cap, method: methodName(it.method),
+            from: 0, to: 0, layerClear: 0, suggest: 0, note: '余高不够（需要 ' + (need + cab.board) + 'mm，只剩 ' + Math.max(0, cab.netHeight - used) + 'mm）：建议与相邻层合并，或改用抽拉五金' });
+          return;
+        }
+        n++;
+        var bottom2 = plinth + used;
+        rows.push({ no: 100 + n, zone: '层板区', name: it.name, unit: it.unit, dims: it.w + '×' + it.d + '×' + it.h, cap: cap,
+          method: methodName(it.method), from: bottom2, to: bottom2 + need, layerClear: need,
+          suggest: Math.max(1, Math.floor(cap * (it.h > 200 ? 0.7 : 0.75))), note: '' });
+        used += need + cab.board;
+      });
+      if (zones.length && !p.layers) remainTxt = remainTxt || ('按上述分区后，柜内剩余高度约 ' + Math.max(0, Math.round(cab.netHeight - used)) + 'mm 可留作备用层。');
+    }
+
+    var placed = rows.filter(function (r) { return r.no; });
+    var zoneNotes = [];
+    (function () {
+      var groups = {};
+      placed.forEach(function (r) { if (r.zone) { (groups[r.zone] = groups[r.zone] || []).push(r); } });
+      Object.keys(groups).forEach(function (z) {
+        var g = groups[z];
+        if (g.length < 2 || !/衣区|挂衣|共用一根杆/.test(z)) return;
+        var rods = /双杆/.test(z) ? 2 : 1;
+        var pitchMax = Math.max.apply(null, g.map(function (r) { return r.pitch || parseFloat(String(r.dims).split('×')[0]) || 60; }));
+        var zoneCap = Math.max(1, Math.floor((cab.netWidth + 5) / (pitchMax + 5)) * rods);
+        g.forEach(function (r) {
+          r.suggest = Math.max(1, Math.floor(zoneCap / g.length * 0.85));
+          r.note = (r.note ? r.note + '；' : '') + '本区共用挂杆，' + g.length + ' 类合计上限约 ' + zoneCap + ' 件';
+          r.cap = zoneCap;
+        });
+        zoneNotes.push('【' + z + '】同一根杆位：' + g.length + ' 类物品合计别超过约 ' + zoneCap + ' 件（按最大挂位占宽算），上面各类数量是"均分建议"，实际按业主哪类多就多分。');
+      });
+    })();
+    var total = placed.reduce(function (s, r) { return s + r.suggest; }, 0);
+
+    // 位置建议：中段留给高频
+    var midFrom = 0, midTo = 0;
+    if (placed.length) {
+      var midIdx = Math.max(0, Math.floor((placed.length - 2) / 2));
+      midFrom = placed[midIdx].from;
+      midTo = placed[Math.min(placed.length - 1, midIdx + 1)].to;
+    }
+
+    // ---------- 文本 ----------
+    var lines = [];
+    lines.push('【' + scene + ' · 收纳方案建议】');
+    lines.push('柜体：' + fmt(cab.length) + ' 宽 × ' + fmt(cab.height) + ' 高 × ' + fmt(cab.depth) + ' 深 mm（净空 ' + fmt(cab.netWidth) + ' × ' + fmt(cab.netHeight) + ' × ' + fmt(cab.netDepth) + '，分 ' + cab.bays + ' 格）' + (fromQ.length ? '　※ 尺寸取自你的问题（' + fromQ.join('、') + '）' : '　※ 尺寸取自左侧已填的柜体'));
+    lines.push(p.layers ? ('层数：按你说的 ' + p.layers + ' 层，每层净高约 ' + Math.floor((cab.netHeight - (p.layers - 1) * cab.board) / p.layers) + 'mm') : '层数：按每类物品所需净高排布（层板可调）');
+    lines.push('');
+    var lastZone = null, layerNo = 0;
+    rows.forEach(function (r) {
+      if (!r.no) { lines.push('× ' + r.name + '：' + r.note); return; }
+      if (r.zone && r.zone !== '层板区' && r.zone !== lastZone) {
+        lastZone = r.zone;
+        lines.push('【' + r.zone + '】离地 ' + fmt(r.from) + '–' + fmt(r.to) + 'mm，净高 ' + r.layerClear + 'mm');
+      }
+      if (!r.zone || r.zone === '层板区') {
+              layerNo++;
+              lines.push('第 ' + layerNo + ' 层（离地 ' + fmt(r.from) + '–' + fmt(r.to) + 'mm，层净高 ' + r.layerClear + 'mm）：' + r.name
+                + ' —— 建议 ' + r.suggest + ' ' + r.unit + '（本层容量上限 ' + r.cap + ' ' + r.unit + '，已留取放余量）' + (r.note ? '　⚠ ' + r.note : ''));
+              return;
+            }
+      lines.push('  · ' + r.name + ' —— 建议 ' + r.suggest + ' ' + r.unit + '（本区容量上限 ' + r.cap + ' ' + r.unit + '）' + (r.note ? '　⚠ ' + r.note : ''));
+    });
+    zoneNotes.forEach(function (t) { lines.push(t); });
+    lines.push('');
+    lines.push('合计建议放置约 ' + fmt(total) + ' 件（不含取放余量的理论容量更高；留 20% 空位便于日常取放）。');
+    lines.push('位置建议：高频物品放中段（约离地 ' + fmt(midFrom) + '–' + fmt(midTo) + 'mm，站着伸手就够）；底层放重物和大件，顶层放低频备品或用收纳盒合并小件。');
+    if (remainTxt) lines.push(remainTxt);
+    lines.push('说明：以上物品与尺寸全部取自本场景物品库的实测数据；层高按可调层板计算，实际下单前请按客户实物复核最长/最厚的那一件。');
+
+    // ---------- HTML ----------
+    var html = '<div class="ask-h">' + esc(scene) + ' · 方案建议</div>' +
+      '<div class="ask-meta">柜体 ' + fmt(cab.length) + '×' + fmt(cab.height) + '×' + fmt(cab.depth) + 'mm ｜ 净空 ' + fmt(cab.netWidth) + '×' + fmt(cab.netHeight) + '×' + fmt(cab.netDepth) + ' ｜ ' + cab.bays + ' 格' + (fromQ.length ? ' ｜ <b>尺寸取自你的问题</b>' : '') + '</div>' +
+      '<table class="rpt-tb"><thead><tr><th>区域</th><th>放什么</th><th>建议数量</th><th>容量上限</th><th>存放方式</th></tr></thead><tbody>' +
+      rows.map(function (r) {
+        return '<tr><td>' + (r.zone ? esc(r.zone) : '—') + '<small style="display:block;color:#657482">' + (r.no ? '离地 ' + fmt(r.from) + '–' + fmt(r.to) + 'mm<br>净高 ' + r.layerClear + 'mm' : '未排入') + '</small></td>' +
+          '<td><b>' + esc(r.name) + '</b><small style="display:block;color:#657482">' + esc(r.dims) + ' mm</small></td>' +
+          '<td>' + (r.no ? r.suggest + ' ' + esc(r.unit) : '—') + '</td><td>' + (r.no ? r.cap + ' ' + esc(r.unit) : '—') + '</td>' +
+          '<td>' + esc(r.method) + (r.note ? '<small style="display:block;color:#a63f3f">' + esc(r.note) + '</small>' : '') + '</td></tr>';
+      }).join('') + '</tbody></table>' +
+      '<p class="ask-note">位置建议：高频物品放中段（离地约 ' + fmt(midFrom) + '–' + fmt(midTo) + 'mm），底层放重物和大件，顶层放低频备品或用收纳盒合并小件。</p>' +
+      '<p class="ask-note">合计约 ' + fmt(total) + ' 件（已留取放余量）。物品与尺寸全部取自「' + esc(scene) + '」物品库的实测条目，未引入库外物品。</p>' +
+      (remainTxt ? '<p class="ask-note">' + esc(remainTxt) + '</p>' : '') +
+      (fromQ.length ? '<button type="button" class="secondary-btn ask-fill" data-fill="' + [cab.length, cab.height, cab.depth].join(',') + '">把这三个尺寸填到左侧柜体</button>' : '');
+
+    return { ok: true, html: html, text: lines.join('\n'), scene: scene, layers: p.layers || placed.length };
+  }
+
+  // ---------- 界面 ----------
+  function mount() {
+    var q = document.getElementById('askInput'), btn = document.getElementById('askBtn'), out = document.getElementById('askAnswer');
+    if (!q || !btn || !out) return;
+    var hint = document.getElementById('askSceneHint');
+    var refresh = function () {
+      var scene = window.YujiGeneral ? window.YujiGeneral.scene() : '';
+      var names = lib().filter(function (it) { return it.scene === scene; }).map(function (it) { return it.name; });
+      if (hint) hint.textContent = '当前场景「' + scene + '」可问的物品共 ' + names.length + ' 项：' + names.slice(0, 12).join('、') + (names.length > 12 ? ' …' : '');
+    };
+    refresh();
+    var run = function () {
+      var text = q.value.trim();
+      if (!text) { out.innerHTML = '<p class="ask-note">请先写一句问题，例如「1米宽2米高5层板的茶水柜，建议怎么放」。</p>'; return; }
+      var r = answer(text, null);
+      out.innerHTML = r.ok ? r.html : '<p class="ask-note">' + esc(r.text) + '</p>';
+      window._askText = r.ok ? r.text : '';
+      refresh();
+    };
+    btn.addEventListener('click', run);
+    q.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || !e.shiftKey)) { e.preventDefault(); run(); } });
+    var copyBtn = document.getElementById('askCopyBtn');
+    if (copyBtn) copyBtn.addEventListener('click', function () {
+      if (!window._askText) { if (window.showToast) showToast('先问一次再复制'); return; }
+      if (window.copyText) copyText(window._askText + '\n（依据：本场景物品库实测尺寸 + 柜体净尺寸计算；下单前按实物复核）', '方案建议已复制');
+    });
+    document.querySelectorAll('#askExamples [data-ask]').forEach(function (b) {
+      b.addEventListener('click', function () { q.value = b.dataset.ask; run(); });
+    });
+    out.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-fill]');
+      if (!b) return;
+      var v = b.dataset.fill.split(',');
+      var set = function (id, val) { var el = document.getElementById(id); if (el) el.value = val; };
+      set('generalLength', v[0]); set('generalHeight', v[1]); set('generalDepth', v[2]);
+      var form = document.getElementById('generalForm');
+      if (form) form.dispatchEvent(new Event('input', { bubbles: true }));
+      if (window.showToast) showToast('已把尺寸填到左侧柜体，可继续微调');
+    });
+  }
+
+  window.YujiAsk = { answer: answer, parse: parseQuestion, mount: mount };
+  document.addEventListener('DOMContentLoaded', function () { setTimeout(mount, 60); });
+})();

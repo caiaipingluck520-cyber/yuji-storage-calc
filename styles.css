@@ -79,3 +79,20 @@
   .rpt-page{border:0;padding:14mm 14mm;min-height:auto;page-break-after:always}
   .rpt-page:last-child{page-break-after:auto}
 }
+
+.custom-item{margin-top:12px;padding:12px;border:1px dashed var(--accent-dark);background:#fffdf6}
+.ask-box{margin-top:16px;padding:14px 16px 12px;border:1px solid var(--line);background:#f8fafb}
+.ask-title{font-size:.9rem;font-weight:850;margin-bottom:10px}
+.ask-title small{font-weight:600;color:var(--muted);font-size:.72rem;margin-left:6px}
+.ask-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:stretch}
+.ask-row textarea{width:100%;border:1px solid #bcc8cf;background:#fff;border-radius:3px;padding:9px 11px;font:inherit;font-size:.86rem;resize:vertical;min-height:52px}
+.ask-row .primary-btn{min-width:96px;height:auto}
+.ask-examples{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 6px}
+.ask-examples button{border:1px solid var(--line);background:#fff;border-radius:20px;padding:5px 11px;font-size:.74rem;font-weight:700;color:var(--ink-2)}
+.ask-examples button:hover{border-color:var(--accent-dark);color:var(--accent-dark)}
+.ask-hint{font-size:.72rem;color:var(--muted);line-height:1.6;margin:4px 0 10px}
+#askAnswer{margin-top:6px}
+.ask-h{font-size:.9rem;font-weight:850;margin:8px 0 4px}
+.ask-meta{font-size:.75rem;color:var(--muted);margin-bottom:8px;line-height:1.6}
+.ask-note{font-size:.75rem;color:#4c5b66;line-height:1.7;margin:8px 0 0}
+.ask-copy{width:100%;margin-top:10px}
