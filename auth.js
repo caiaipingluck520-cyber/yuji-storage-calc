@@ -15,7 +15,7 @@
   'use strict';
 
   // ===== 可调参数 =====
-  var FACTORY_HASH = '2375469b2076bc4d5d411646045abcffd6cf3fd5976068d3e58e00a4e5a8bf98';   // 出厂主密码哈希，由 tools/set-password.mjs 写入
+  var FACTORY_HASH = '1a95d9da59ca549065d4c4599f300828a903da7f88b43b256434ef355e80a56c';   // 出厂主密码哈希，由 tools/set-password.mjs 写入
   var SALT      = 'yuji-zhj-2026';
   var ITER      = 5000;
   var SESSION_KEY = 'yujistorage-auth-v1';
