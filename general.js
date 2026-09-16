@@ -171,10 +171,10 @@ const objectLibrary = [
   m('客厅/公共','纸品','抽纸盒',200,120,90,'shelf-grid','盒','高频位置就近补充。',45,{clearance:10,moduleHeight:140}),
   m('书房','文件','双孔文件夹',75,288,315,'shelf-row','本','直立单排，脊背朝外。',45,{clearance:8,moduleHeight:360}),
   m('书房','文件','文件盒',90,300,320,'shelf-row','个','直立单排；活动层板总高约 352mm。',46,{clearance:8,moduleHeight:352}),
-  m('书房','书籍','正32开书',30,130,185,'shelf-row','本','直立单排，默认厚度 30mm，可按实物改。',47,{clearance:5,moduleHeight:230,approx:true}),
-  m('书房','书籍','A5 书',30,148,210,'shelf-row','本','直立单排，书脊朝外。',47,{clearance:5,moduleHeight:255,approx:true}),
-  m('书房','书籍','正16开书',30,195,270,'shelf-row','本','直立单排，层板深度不必统一做深。',47,{clearance:5,moduleHeight:315,approx:true}),
-  m('书房','书籍','A4 书/资料',30,210,294,'shelf-row','本','直立单排，柜内深度约 250–300mm 即可。',47,{clearance:5,moduleHeight:340,approx:true}),
+  m('书房','书籍','正32开书',20,130,185,'shelf-row','本','直立单排；厚度按平均 20mm（图鉴只给开本、没给厚度，必须按实书复核）。',47,{clearance:5,moduleHeight:230,approx:true}),
+  m('书房','书籍','A5 书',20,148,210,'shelf-row','本','直立单排，书脊朝外；厚度按平均 20mm。',47,{clearance:5,moduleHeight:255,approx:true}),
+  m('书房','书籍','正16开书',25,195,270,'shelf-row','本','直立单排；厚度按平均 25mm。',47,{clearance:5,moduleHeight:315,approx:true}),
+  m('书房','书籍','A4 书/资料',25,210,294,'shelf-row','本','直立单排；厚度按平均 25mm（图鉴只给开本，必须按实书复核）。',47,{clearance:5,moduleHeight:340,approx:true}),
   m('儿童/兴趣','图书','低龄绘本',10,250,280,'shelf-row','本','封面朝前或矮层直立，儿童可达。',47,{clearance:3,moduleHeight:330,approx:true}),
   m('儿童/兴趣','图书','大龄绘本',30,250,280,'shelf-row','本','直立单排，按 10–30mm 厚度估算。',47,{clearance:3,moduleHeight:330,approx:true}),
 
@@ -272,6 +272,7 @@ function calculateGeneral(){
   if(!heightPass)warnings.push({level:'danger',text:`柜内净高约 ${Math.round(netHeight)}mm，小于物品高度 ${item.h}mm。`});
   if(method==='shelf-grid'&&deep>1)warnings.push({level:'',text:'当前计算包含前后多排；高频物品建议改单排，避免看不见、拿不出。'});
   if(item.approx)warnings.push({level:'',text:'该条目原始资料识别置信度较低，进入施工图前必须按业主实物复尺。'});
+  if(item.category==='书籍'||item.category==='图书')warnings.push({level:'',text:'书本厚度是估算值：图鉴只给了开本尺寸，没给厚度。当前按每本 '+item.w+'mm 计——厚度翻倍、容量就差一半。客户以平装为主就把"单件占宽/厚度"调到 20mm 上下，精装/图册为主调到 30mm 以上，按实书复核后再报数。'});
   if(/湿|通风|沥水|防漏/.test(item.note))warnings.push({level:'',text:'此物品涉及潮湿、漏液或通风，容量通过不代表构造可以密闭。'});
   if(method==='hang'&&railsMode==='double'&&item.h>1050&&netHeight<(2*item.h+100))warnings.push({level:'danger',text:`长衣（衣长 ${item.h}mm）上下双杆需净高 ≥ ${2*item.h+100}mm，当前净高 ${Math.round(netHeight)}mm 放不下，已按单杆计。`});
   if(!warnings.length)warnings.push({level:'ok',text:'容量初审通过；仍需核对门型、五金、承重、安装收口与取放动作。'});
@@ -289,6 +290,14 @@ function calculateGeneral(){
     if(spareDepth>=150&&method!=='hang')hints.push(`柜内净深比物品进深多 ${Math.round(spareDepth)}mm。深柜不会自动多放，可考虑抽拉/斜插五金或前后分区（约 +30%～50%），需配五金并确认取放动作。`);
     if(isShoe&&layKey==='side')hints.push('当前按「并排直放」保守口径。若现场实际是错位摆放（相邻两双错开半只），切到「错位摆放」可再增容约 60%——报客户前请确认实际摆法。');
     if(isShoe&&layKey==='stagger')hints.push('当前按「错位摆放」（达哥口径，每米约 8 双男鞋）计算；若客户习惯两鞋平放、一目了然，切到「并排直放」复核保守值。');
+    if((item.category==='书籍'||item.category==='图书')&&!(pitchOv>0)){
+      var _b=Math.max(1,Math.ceil(length/bayTarget)), _nw=Math.max(0,length-board*(_b+1)), _cw=_nw/_b;
+      var _lv=levels;
+      [[0.8,'以平装为主（每本约 20mm）'],[1.0,'当前口径'],[1.2,'以精装/图册为主（每本约 30mm）']].forEach(function(c){
+        var t=Math.round(item.w*c[0]); var ac=Math.floor((_cw+gap)/Math.max(1,t+gap)); var cap2=ac*_b*_lv;
+        hints.push('若按「'+c[1]+'」算（每本 '+t+'mm）：每层 '+ac*_b+' 本 × '+_lv+' 层 = '+cap2+' 本，约每米 '+(1000/Math.max(1,t)).toFixed(1)+' 本（当前 '+capacity+' 本）。');
+      });
+    }
     if(method==='hang'){
       const perBay=Math.floor(cellWidth/Math.max(1,wEff)); const oneRow=perBay*bays; const needDouble=2*item.h+100; const canDouble=netHeight>=needDouble;
       hints.push(`挂衣两笔账：单杆 ${oneRow} 件（净宽 ${Math.round(netWidth)}mm ÷ 每件占杆宽 ${Math.round(wEff)}mm${bays>1?`；分 ${bays} 格后每格 ${perBay} 件，分格会吃掉余宽`:''} ≈ 每米 ${(oneRow/(netWidth/1000)).toFixed(1)} 件）${canDouble?`｜上下双杆 ${oneRow*2} 件（双杆需净高 ≥ ${needDouble}mm，当前 ${Math.round(netHeight)}mm 够）`:`｜上下双杆需净高 ≥ ${needDouble}mm，当前 ${Math.round(netHeight)}mm 不够`}。当前按「${railsMode==='auto'?'自动（短衣双层/长衣单杆）':railsMode==='single'?'强制单杆':'强制双杆'}」计。`);
@@ -298,7 +307,7 @@ function calculateGeneral(){
       if(spareH>=300&&spareH<600) hints.push(`净高还剩约 ${Math.round(spareH)}mm：可加一层薄层板放折叠衣物或旅行箱，别空着。`);
     }
   }
-  return {type:'全屋物品',label:document.getElementById('generalLabel').value.trim()||`${item.scene}${item.name}`,scene:item.scene,itemName:item.name,category:item.category,unit:item.unit,userHeight:generalNumber('generalUserHeight')||1600,needQty,width:length,height,depth,bayWidth:bayTarget,bays,board,depthLoss,reserved,plinth,moduleHeight,stackQty,growth,method,layKey,layName,layFactor,wEff:Math.round(wEff),pitchOverride:pitchOv,railsMode,capacity,safe,netWidth,cellWidth,netHeight,netDepth,across,deep,levels,itemDims:{w:item.w,d:item.d,h:item.h},note:item.note,slide:item.slide,valid:widthPass&&depthPass&&heightPass,warnings,hints};
+  return {type:'全屋物品',label:document.getElementById('generalLabel').value.trim()||`${item.scene}${item.name}`,scene:item.scene,itemName:item.name,category:item.category,unit:item.unit,userHeight:generalNumber('generalUserHeight')||1600,needQty,libPitch:item.w,width:length,height,depth,bayWidth:bayTarget,bays,board,depthLoss,reserved,plinth,moduleHeight,stackQty,growth,method,layKey,layName,layFactor,wEff:Math.round(wEff),pitchOverride:pitchOv,railsMode,capacity,safe,netWidth,cellWidth,netHeight,netDepth,across,deep,levels,itemDims:{w:item.w,d:item.d,h:item.h},note:item.note,slide:item.slide,valid:widthPass&&depthPass&&heightPass,warnings,hints};
 }
 
 function renderGeneral(){
@@ -309,6 +318,8 @@ function renderGeneral(){
   const layLine=r.category==='鞋类'?`<div class="warning ok">口径：${r.layName}｜每双占宽按 ${r.wEff} mm 计</div>`:'';
   const hintLines=(r.hints&&r.hints.length)?r.hints.map(h=>`<div class="warning">提升空间：${h}</div>`).join(''):'';
   document.getElementById('generalWarnings').innerHTML=r.warnings.map(w=>`<div class="warning ${w.level}">${w.text}</div>`).join('')+layLine+hintLines; document.getElementById('generalSource').textContent=`尺寸依据：《万物与尺度》幻灯片 ${r.slide}；默认板厚 ${r.board}mm、扣深 ${r.depthLoss}mm、自动 ${r.bays} 格。用于方案初审，施工前按实物复尺。`;
+  var _ph=document.getElementById('pitchHint');
+  if(_ph)_ph.textContent=(r.pitchOverride>0?('当前按你填的 '+r.pitchOverride+' mm 计算（已覆盖库内默认 '+r.libPitch+' mm）。'):('0 或留空＝用物品库默认值 '+r.libPitch+' mm。'))+' 书按"每本厚度"、衣服按"每件占杆宽"、鞋按"每双占宽"理解；这一项直接决定容量，务必按客户实物改。';
   if(window.YujiAdvice) YujiAdvice.render(r,{userHeight:generalNumber('generalUserHeight')||1600});
   if(typeof scheduleSave==='function')scheduleSave();
 }

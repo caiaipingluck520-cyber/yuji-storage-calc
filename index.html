@@ -102,6 +102,7 @@
               <label>使用场景<select id="generalScene"></select></label>
               <label>收纳物品<select id="generalItem"></select></label>
               <label class="shoe-lay-field">鞋类摆放口径<select id="generalShoeLay"><option value="stagger" selected>错位摆放（达哥口径 · 每米约 8 双）</option><option value="side">并排直放（保守 · 每米约 5 双）</option></select><small>仅对「鞋类」生效：错位＝相邻两双错开半只；并排＝两鞋平放、取放最顺手但占宽约 1.6 倍。</small></label>
+              <label class="shoe-lay-field">单件占宽 / 厚度<input type="number" id="generalPitch" value="0" min="0" step="5"><small id="pitchHint">0 或留空＝用物品库默认值。书按"每本厚度"、衣服按"每件占杆宽"、鞋按"每双占宽"理解；这一项的直接决定容量，务必按客户实物改。</small></label>
               <label class="shoe-lay-field">挂衣方式<select id="generalRails"><option value="auto" selected>自动（短衣双层 / 长衣单杆）</option><option value="single">强制单杆</option><option value="double">强制上下双杆</option></select><small>仅对「挂杆悬挂」生效。长衣（衣长 &gt;1050mm，如羽绒服、大衣）默认单杆：双杆需净高 ≥ 2×衣长+100mm，且上杆要抬手掏、衣摆会压住下排。</small></label>
             </div>
             <div class="item-context" id="itemContext"></div>
@@ -136,7 +137,6 @@
               <label>地脚 / 底部悬空<input type="number" id="generalPlinth" value="0" min="0" step="10"></label>
               <label>其它占高<input type="number" id="generalReserved" value="0" min="0" step="10"></label>
               <label>单元层净高<input type="number" id="generalModuleHeight" value="200" min="50" step="10"></label>
-              <label>单件占宽覆盖<input type="number" id="generalPitch" value="0" min="0" step="5"><small style="display:block;color:var(--muted);font-size:.7rem;font-weight:500">0＝用物品库默认值</small></label>
               <label>单摞 / 单格数量<input type="number" id="generalStackQty" value="1" min="1" max="50"></label>
               <label>存放方式<select id="generalMethod"><option value="shelf-row">层板单排</option><option value="shelf-grid">层板双排/网格</option><option value="stack-group">成摞叠放</option><option value="vertical">直立槽位</option><option value="hang">挂杆悬挂</option><option value="volume">大件独立</option></select></label>
             </div>
