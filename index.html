@@ -182,22 +182,23 @@
         </form>
 
         <aside class="result-panel general-result" aria-live="polite">
-          <div class="result-topline"><span>场景容量</span><span class="status-pill" id="generalStatus">可核算</span></div>
+          <div class="result-topline"><span id="resultToplineLabel">场景容量</span><span class="status-pill" id="generalStatus">可核算</span></div>
+          <div id="askPlanCard" class="ask-plan-card" hidden></div>
           <div class="item-result-heading"><small id="generalSceneName">玄关</small><b id="generalItemName">—</b></div>
-          <div class="hero-number"><strong id="generalCapacity">0</strong><span id="generalUnit">件</span><small>理论总容量</small></div>
+          <div class="hero-number"><strong id="generalCapacity">0</strong><span id="generalUnit">件</span><small id="heroLabel">理论总容量</small></div>
           <div class="safe-capacity"><span>建议当前最多放</span><b id="generalSafe">0 件</b><em id="generalReserveText">已留 20% 增量</em></div>
           <div class="object-scale-card">
             <div class="object-cube" aria-hidden="true"><i></i><span id="objectCubeLabel">W × D × H</span></div>
             <dl>
               <div><dt>物品参考尺寸</dt><dd id="generalItemDims">—</dd></div>
               <div><dt>默认存放方式</dt><dd id="generalMethodText">—</dd></div>
-              <div><dt>单层 / 层数</dt><dd id="generalLayerInfo">—</dd></div>
+              <div><dt id="layerDt">单层 / 层数</dt><dd id="generalLayerInfo">—</dd></div>
               <div><dt>柜内净尺寸</dt><dd id="generalNetDims">—</dd></div>
             </dl>
           </div>
           <div class="warnings" id="generalWarnings"></div>
-          <div class="advice-panel">
-            <div class="advice-head">收纳建议 <span>按物品尺寸与柜体净空自动生成</span></div>
+          <div class="advice-panel" id="advicePanel">
+            <div class="advice-head">收纳建议 <span id="adviceHeadNote">按物品尺寸与柜体净空自动生成</span></div>
             <div id="generalAdvice"></div>
           </div>
           <div class="source-note" id="generalSource"></div>

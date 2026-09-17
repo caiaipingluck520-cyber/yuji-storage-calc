@@ -331,6 +331,43 @@ function calculateGeneral(){
   return {type:'全屋物品',label:document.getElementById('generalLabel').value.trim()||`${item.scene}${item.name}`,scene:item.scene,itemName:item.name,category:item.category,unit:item.unit,userHeight:generalNumber('generalUserHeight')||1600,needQty,libPitch:item.w,width:length,height,depth,bayWidth:bayTarget,bays,board,depthLoss,reserved,plinth,moduleHeight,stackQty,growth,method,layKey,layName,layFactor,wEff:Math.round(wEff),pitchOverride:pitchOv,railsMode,capacity,safe,netWidth,cellWidth,netHeight,netDepth,across,deep,levels,itemDims:{w:item.w,d:item.d,h:item.h},note:item.note,slide:item.slide,valid:widthPass&&depthPass&&heightPass,warnings,hints};
 }
 
+// ===== 自主提问方案卡：右侧面板与左侧提问保持一致（数据来自 ask.js 的 window.__yujiAskPlan） =====
+// 说明：拼 HTML 的内容只有两类——物品库固定字段与引擎算出的数字；每条文本都过 escPlan() 转义，未注入用户原文。
+const escPlan=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtInt=n=>Math.round(Number(n)||0).toLocaleString('zh-CN');
+function renderAskPlan(r){
+  const plan=window.__yujiAskPlan||null, has=!!(plan&&plan.rows&&plan.rows.length);
+  const card=document.getElementById('askPlanCard'), topLabel=document.getElementById('resultToplineLabel'),
+        heroLabel=document.getElementById('heroLabel'), layerDt=document.getElementById('layerDt'),
+        advicePanel=document.getElementById('advicePanel'), nameEl=document.getElementById('generalItemName');
+  if(has){
+    const total=plan.rows.reduce((s,x)=>s+(Number(x.suggest)||0),0), d=plan.dims||{};
+    card.hidden=false;
+    card.innerHTML='<div class="ask-plan-head"><b>自主提问方案</b><span>'+escPlan(plan.scene)+'柜 '+fmtInt(d.length)+' × '+fmtInt(d.height)+' × '+fmtInt(d.depth)+' mm　合计建议 <b>'+total+'</b> 件</span></div>'
+      +'<table class="ask-plan-tb"><thead><tr><th>区域</th><th>物品</th><th>建议</th><th>离地</th></tr></thead><tbody>'
+      +plan.rows.map(x=>'<tr><td>'+escPlan(x.where)+'</td><td>'+escPlan(x.name)+'</td><td>'+x.suggest+' '+escPlan(x.unit)+'</td><td>'+fmtInt(x.from)+'–'+fmtInt(x.to)+'</td></tr>').join('')
+      +'</tbody></table>'
+      +(plan.missed&&plan.missed.length?'<div class="ask-plan-less">同场景还有 '+plan.missed.length+' 项物品本柜放不下：'+escPlan(plan.missed.join('、'))+'（需另设一柜或加大柜体）</div>':'')
+      +(plan.unplaced&&plan.unplaced.length?'<ul class="ask-plan-unplaced">'+plan.unplaced.map(x=>'<li>× '+escPlan(x.name)+'：'+escPlan(x.note)+'</li>').join('')+'</ul>':'')
+      +(plan.tips&&plan.tips.length?'<ul class="ask-plan-tips">'+plan.tips.map(t=>'<li>'+escPlan(t)+'</li>').join('')+'</ul>':'')
+      +'<div class="ask-plan-foot">以上是本次提问的整柜方案（分区／数量／离地高度）；下方「单品理论容量」与「收纳建议」只针对当前选中的一件物品，供单件核算参考。</div>';
+    if(topLabel)topLabel.textContent='自主提问方案';
+    if(heroLabel)heroLabel.textContent='单品理论容量（参考）';
+    const mine=plan.rows.find(x=>x.name===r.itemName);
+    if(layerDt)layerDt.textContent='本次方案中的数量';
+    document.getElementById('generalLayerInfo').textContent=mine?(mine.suggest+' '+mine.unit+'（'+mine.where+' · 离地 '+fmtInt(mine.from)+'–'+fmtInt(mine.to)+'mm，净高 '+fmtInt(mine.clear)+'mm）'):'未列入本次方案（本柜放不下，需另设一柜或改挂墙）';
+    if(advicePanel)advicePanel.hidden=true;
+  }else{
+    card.hidden=true; card.innerHTML='';
+    if(topLabel)topLabel.textContent='场景容量';
+    if(heroLabel)heroLabel.textContent='理论总容量';
+    if(layerDt)layerDt.textContent='单层 / 层数';
+    if(advicePanel)advicePanel.hidden=false;
+    const note=document.getElementById('adviceHeadNote'); if(note)note.textContent='按物品尺寸与柜体净空自动生成';
+  }
+  if(nameEl)nameEl.textContent=has?(r.itemName+'（单品参考）'):r.itemName;
+}
+
 function renderGeneral(){
   if(!document.getElementById('generalItem').options.length)return; const r=calculateGeneral(); lastGeneralResult=r;
   document.getElementById('generalSceneName').textContent=`${r.scene} · ${r.category}`; document.getElementById('generalItemName').textContent=r.itemName; document.getElementById('generalCapacity').textContent=r.capacity.toLocaleString('zh-CN'); document.getElementById('generalUnit').textContent=r.unit; document.getElementById('generalSafe').textContent=`${r.safe.toLocaleString('zh-CN')} ${r.unit}`; document.getElementById('generalReserveText').textContent=r.growth?`已留 ${Math.round(r.growth*100)}% 增量`:'未预留未来增量';
@@ -341,6 +378,7 @@ function renderGeneral(){
   document.getElementById('generalWarnings').innerHTML=r.warnings.map(w=>`<div class="warning ${w.level}">${w.text}</div>`).join('')+layLine+hintLines; document.getElementById('generalSource').textContent=`尺寸依据：内部实测尺寸数据库幻灯片 ${r.slide}；默认板厚 ${r.board}mm、扣深 ${r.depthLoss}mm、自动 ${r.bays} 格。用于方案初审，施工前按实物复尺。`;
   var _ph=document.getElementById('pitchHint');
   if(_ph)_ph.textContent=(r.pitchOverride>0?('当前按你填的 '+r.pitchOverride+' mm 计算（已覆盖库内默认 '+r.libPitch+' mm）。'):('0 或留空＝用物品库默认值 '+r.libPitch+' mm。'))+' 书按"每本厚度"、衣服按"每件占杆宽"、鞋按"每双占宽"理解；这一项直接决定容量，务必按客户实物改。';
+  renderAskPlan(r);
   if(window.YujiAdvice) YujiAdvice.render(r,{userHeight:generalNumber('generalUserHeight')||1600});
   if(typeof scheduleSave==='function')scheduleSave();
 }
@@ -361,8 +399,8 @@ function initGeneral(){
   Object.entries(savedInputs).filter(([key])=>key.startsWith('general')).forEach(([key,value])=>{const el=document.getElementById(key);if(el&&key!=='generalItem')el.value=value;});
   if(savedInputs.generalItem&&[...document.getElementById('generalItem').options].some(o=>o.value===String(savedInputs.generalItem)))document.getElementById('generalItem').value=String(savedInputs.generalItem);
   applyObjectDefaults();
-  document.getElementById('generalScene').addEventListener('change',()=>{applySceneDefaults();populateGeneralItems();});
-  document.getElementById('generalItem').addEventListener('change',applyObjectDefaults);
+  document.getElementById('generalScene').addEventListener('change',()=>{window.__yujiAskPlan=null;applySceneDefaults();populateGeneralItems();});
+  document.getElementById('generalItem').addEventListener('change',()=>{window.__yujiAskPlan=null;applyObjectDefaults();});
   var _cm=document.getElementById('customMethod'); if(_cm)_cm.addEventListener('change',applyObjectDefaults);
   document.getElementById('generalForm').addEventListener('input',renderGeneral);
   document.getElementById('addGeneralBtn').addEventListener('click',()=>addItem(lastGeneralResult));

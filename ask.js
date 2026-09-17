@@ -536,7 +536,9 @@
     });
 
     return { ok: true, html: html, text: lines.join('\n'), rows: outRows, scene: scene, question: question,
-      layers: p.layers || placed.length, length: cab.length, height: cab.height, depth: cab.depth };
+      layers: p.layers || placed.length, length: cab.length, height: cab.height, depth: cab.depth,
+      designTips: designTips, missed: (missed || []).map(function (x) { return x.name; }),
+      unplaced: rows.filter(function (r) { return !r.no; }).map(function (r) { return { name: r.name, note: r.note }; }) };
   }
 
   // ---------- 界面 ----------
@@ -557,6 +559,12 @@
       out.innerHTML = r.ok ? r.html : '<p class="ask-note">' + esc(r.text) + '</p>';
       window._askText = r.ok ? r.text : '';
       window._askLast = r.ok ? r : null;
+      if (r.ok) {
+        window.__yujiAskPlan = { scene: r.scene, question: r.question, text: r.text, rows: r.rows || [],
+          tips: r.designTips || [], missed: r.missed || [], unplaced: r.unplaced || [],
+          dims: { length: r.length, height: r.height, depth: r.depth },
+          label: (document.getElementById('generalLabel') || {}).value || '', at: Date.now() };
+      } else { window.__yujiAskPlan = null; }
       if (r.ok && window.YujiGeneral && window.YujiGeneral.applyFromAsk) {
         var firstRow = (r.rows || []).filter(function (x) { return x && x.name; })[0];
         try { window.YujiGeneral.applyFromAsk({ length: r.length, height: r.height, depth: r.depth, itemName: firstRow ? firstRow.name : '' }); }
