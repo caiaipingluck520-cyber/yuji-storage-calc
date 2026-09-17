@@ -28,11 +28,6 @@
 .ask-plan-tb{width:100%;border-collapse:collapse;font-size:12px}
 .ask-plan-tb th{text-align:left;font-weight:600;color:#8a7f70;border-bottom:1px solid #e6dfd2;padding:4px 6px}
 .ask-plan-tb td{padding:5px 6px;border-bottom:1px dashed #ece5d9;vertical-align:top;color:#3c352d}
-.ask-plan-less{margin-top:8px;font-size:12px;color:#a63f3f}
-.ask-plan-tips{margin:8px 0 0;padding-left:16px;font-size:12px;color:#5d554b;line-height:1.65}
-.ask-plan-foot{margin-top:8px;padding-top:8px;border-top:1px solid #ece5d9;font-size:11px;color:#8a7f70}
-.ask-plan-unplaced{margin:8px 0 0;padding:0 0 0 2px;list-style:none;font-size:12px;color:#a63f3f;line-height:1.6}
-.ask-plan-unplaced li{margin:2px 0}
 
 /* 方案卡：不溢出、可滚动、三列固定宽度 */
 .ask-plan-scroll{max-height:270px;overflow:auto}
