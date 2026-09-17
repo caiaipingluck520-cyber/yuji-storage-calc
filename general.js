@@ -383,7 +383,16 @@ window.YujiGeneral = {
     reserved: generalNumber('generalReserved'), plinth: generalNumber('generalPlinth'),
     method: document.getElementById('generalMethod').value
   }; },
-  library: function(){ return objectLibrary; }
+  library: function(){ return objectLibrary; },
+  // 自主提问后：把问句里的柜体尺寸与代表物品同步到左侧面板，右侧「物品参考尺寸」随之更新
+  setItem: function(name){ if(!name) return false; const sel=document.getElementById('generalItem'); if(!sel) return false;
+    for(let i=0;i<sel.options.length;i++){ if(sel.options[i].text===name){ sel.value=sel.options[i].value; applyObjectDefaults(); return true; } }
+    return false; },
+  applyFromAsk: function(o){ o=o||{};
+    [['generalLength',o.length],['generalHeight',o.height],['generalDepth',o.depth]].forEach(([id,v])=>{ const el=document.getElementById(id); if(el&&Number(v)>0) el.value=Math.round(Number(v)); });
+    if(o.itemName) window.YujiGeneral.setItem(o.itemName);
+    renderGeneral();
+    return true; }
 };
 
 if(document.addEventListener)document.addEventListener('DOMContentLoaded',initGeneral);
