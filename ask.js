@@ -411,8 +411,9 @@
         S2.usedH = cand.top;
         return true;
       });
+      var shelfBase = botUsed, maxUsed = 0;      // 各竖格并排：同一基准起算，层板区总占用取各格最大值
       stacks.forEach(function (S, si) {
-        var from = plinth + botUsed;
+        var from = plinth + shelfBase;
         S.layers.forEach(function (L, li) {
           layerIdx++;
           var zname = '层板区 第' + (si + 1) + '格 第' + (li + 1) + '层';
@@ -428,8 +429,9 @@
           });
           from += L.clear + cab.board;
         });
-        if (si === 0) botUsed += S.usedH;
+        if (S.usedH > maxUsed) maxUsed = S.usedH;
       });
+      botUsed = shelfBase + maxUsed;
 
       var leftover = Math.max(0, Math.round(cab.netHeight - botUsed - topUsed));
       if (truncated) remainTxt = '本表已按净高排满，另有 ' + truncated + ' 项同场景物品未列出（增加层板或分柜可继续容纳）。';
@@ -471,7 +473,7 @@
     var designTips = [];
     if (hasZone(/挂衣/)) designTips.push('挂衣区：净深 ≥530mm（含衣架 550mm），挂杆距顶板 60mm，长衣区不设层板');
     if (hasZone(/落地低区/)) designTips.push('落地低区：底板做可拆/加防潮垫，扫地机器人与充电类预留插座、前方留 100mm 回充通道');
-    if (hasZone(/直立高区/)) designTips.push('直立高区：整格通高不设层板，柜门用平开或上翻，柜内留 60mm 拿取余量');
+    if (hasZone(/直立高区/)) designTips.push('直立高区：整格通高、不设层板与中竖板（否则并排宽度不成立），柜门用平开或上翻，柜内留 60mm 拿取余量');
     if (hasZone(/层板区/)) designTips.push('层板区：按 32mm 排孔可调，重物（米桶/锅具/油瓶）放最下层，小件配收纳盒分区');
     designTips.push('以上单位 mm；下单前按客户实物复核最长/最厚/最重的那一件，并核对柜体承重');
 
@@ -524,7 +526,7 @@
       '<p class="ask-note">依据：物品库实测尺寸 + 人体工学可达域分区（高频中段／重物落地／低频上层）+ 直立按净宽并排、层板按净高分层核算。</p>' +
       '<p class="ask-note">设计要点：' + esc(designTips.join('；')) + '</p>' +
       '<button type="button" class="secondary-btn ask-save" data-saveplan="1">把这份方案存入当前柜体（随报告与 PPTX 导出）</button>' +
-      (fromQ.length ? '<button type="button" class="secondary-btn ask-fill" data-fill="' + [cab.length, cab.height, cab.depth].join(',') + '">把这三个尺寸填到左侧柜体</button>' : '');
+      (fromQ.length ? '<button type="button" class="secondary-btn ask-fill" data-fill="' + [cab.length, cab.height, cab.depth].join(',') + '">按这三个尺寸重算左侧</button>' : '');
 
     // 结构化行（给报告/PPTX 用）
     var seq = 0;
@@ -537,7 +539,7 @@
 
     return { ok: true, html: html, text: lines.join('\n'), rows: outRows, scene: scene, question: question,
       layers: p.layers || placed.length, length: cab.length, height: cab.height, depth: cab.depth,
-      designTips: designTips, missed: (missed || []).map(function (x) { return x.name; }),
+      designTips: designTips, missed: (missed || []).map(function (x) { return x.name; }), bays: cab.bays,
       unplaced: rows.filter(function (r) { return !r.no; }).map(function (r) { return { name: r.name, note: r.note }; }) };
   }
 
@@ -561,7 +563,7 @@
       window._askLast = r.ok ? r : null;
       if (r.ok) {
         window.__yujiAskPlan = { scene: r.scene, question: r.question, text: r.text, rows: r.rows || [],
-          tips: r.designTips || [], missed: r.missed || [], unplaced: r.unplaced || [],
+          tips: r.designTips || [], missed: r.missed || [], unplaced: r.unplaced || [], bays: r.bays || 1,
           dims: { length: r.length, height: r.height, depth: r.depth },
           label: (document.getElementById('generalLabel') || {}).value || '', at: Date.now() };
       } else { window.__yujiAskPlan = null; }

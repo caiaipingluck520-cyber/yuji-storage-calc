@@ -337,33 +337,84 @@ const escPlan=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 const fmtInt=n=>Math.round(Number(n)||0).toLocaleString('zh-CN');
 function renderAskPlan(r){
   const plan=window.__yujiAskPlan||null, has=!!(plan&&plan.rows&&plan.rows.length);
-  const card=document.getElementById('askPlanCard'), topLabel=document.getElementById('resultToplineLabel'),
-        heroLabel=document.getElementById('heroLabel'), layerDt=document.getElementById('layerDt'),
-        advicePanel=document.getElementById('advicePanel'), nameEl=document.getElementById('generalItemName');
+  const card=document.getElementById('askPlanCard'), fig=document.getElementById('askPlanDiagram'),
+        topLabel=document.getElementById('resultToplineLabel'), layerDt=document.getElementById('layerDt'),
+        advicePanel=document.getElementById('advicePanel'), adviceNote=document.getElementById('adviceHeadNote'),
+        adviceBox=document.getElementById('generalAdvice');
+  const single=Array.prototype.slice.call(document.querySelectorAll('.general-result .item-result-heading,.general-result .hero-number,.general-result .safe-capacity'));
   if(has){
     const total=plan.rows.reduce((s,x)=>s+(Number(x.suggest)||0),0), d=plan.dims||{};
+    single.forEach(el=>{el.hidden=true;});                 // 方案模式：不再出现"单品理论容量（参考）"那一块
     card.hidden=false;
-    card.innerHTML='<div class="ask-plan-head"><b>自主提问方案</b><span>'+escPlan(plan.scene)+'柜 '+fmtInt(d.length)+' × '+fmtInt(d.height)+' × '+fmtInt(d.depth)+' mm　合计建议 <b>'+total+'</b> 件</span></div>'
-      +'<table class="ask-plan-tb"><thead><tr><th>物品</th><th>尺寸（毫米）</th><th>数量</th></tr></thead><tbody>'
+    card.innerHTML='<div class="ask-plan-head"><b>自主提问方案</b><span>'+escPlan(plan.scene)+'柜　长 '+fmtInt(d.length)+' × 高 '+fmtInt(d.height)+' × 深 '+fmtInt(d.depth)+' mm　合计 <b>'+total+'</b> 件</span></div>'
+      +'<div class="ask-plan-scroll"><table class="ask-plan-tb"><colgroup><col class="c1"><col class="c2"><col class="c3"></colgroup>'
+      +'<thead><tr><th>物品</th><th>尺寸（毫米）<br>宽×深×高</th><th>数量</th></tr></thead><tbody>'
       +plan.rows.map(x=>'<tr><td>'+escPlan(x.name)+'</td><td>'+escPlan(x.dims||'')+'</td><td>'+x.suggest+' '+escPlan(x.unit)+'</td></tr>').join('')
-      +'</tbody></table>'
+      +'</tbody></table></div>'
       +(plan.unplaced&&plan.unplaced.length?'<div class="ask-plan-less">放不下：'+escPlan(plan.unplaced.map(x=>x.name).join('、'))+'（需另柜或挂墙）</div>':'')
       +(plan.missed&&plan.missed.length?'<div class="ask-plan-less">另有 '+plan.missed.length+' 项本柜放不下：'+escPlan(plan.missed.join('、'))+'</div>':'');
     if(topLabel)topLabel.textContent='自主提问方案';
-    if(heroLabel)heroLabel.textContent='单品理论容量（参考）';
     const mine=plan.rows.find(x=>x.name===r.itemName);
     if(layerDt)layerDt.textContent='本次方案中的数量';
-    document.getElementById('generalLayerInfo').textContent=mine?(mine.suggest+' '+mine.unit+'（'+mine.where.replace(/（[^）]*）/g,'')+' · 离地 '+fmtInt(mine.from)+'–'+fmtInt(mine.to)+'mm）'):'未列入本次方案（本柜放不下，需另设一柜或改挂墙）';
-    if(advicePanel)advicePanel.hidden=true;
-  }else{
-    card.hidden=true; card.innerHTML='';
-    if(topLabel)topLabel.textContent='场景容量';
-    if(heroLabel)heroLabel.textContent='理论总容量';
-    if(layerDt)layerDt.textContent='单层 / 层数';
+    const dtItem=document.querySelector('#layerDt')?document.querySelector('#layerDt').closest('div').querySelector('dt'):null;
+    const dimsDt=Array.prototype.find.call(document.querySelectorAll('.object-scale-card dt'),d=>d.textContent.indexOf('物品参考尺寸')>=0);
+    if(dimsDt)dimsDt.textContent='物品参考尺寸（'+r.itemName+'）';
+    document.getElementById('generalLayerInfo').textContent=mine?(mine.suggest+' '+mine.unit+'（'+mine.where.replace(/（[^）]*）/g,'')+' · 离地 '+fmtInt(mine.from)+'–'+fmtInt(mine.to)+'mm）'):'未列入本次方案';
+    renderPlanFigure(plan);
+    // 收纳提升建议：方案模式下改为按本次方案生成
     if(advicePanel)advicePanel.hidden=false;
-    const note=document.getElementById('adviceHeadNote'); if(note)note.textContent='按物品尺寸与柜体净空自动生成';
+    if(adviceNote)adviceNote.textContent='按本次提问方案生成';
+    if(adviceBox)adviceBox.innerHTML=(plan.tips&&plan.tips.length?plan.tips.map(t=>'<div class="plan-tip-line">· '+escPlan(t)+'</div>').join(''):'')
+      +((plan.unplaced&&plan.unplaced.length)?'<div class="warning">放不下 '+plan.unplaced.length+' 项（'+escPlan(plan.unplaced.map(x=>x.name).join('、'))+'）：需另设一柜、改挂墙，或加大柜体／增加并排宽度</div>':'');
+  }else{
+    single.forEach(el=>{el.hidden=false;});
+    card.hidden=true; card.innerHTML='';
+    if(fig){fig.hidden=true; fig.innerHTML='';}
+    if(topLabel)topLabel.textContent='场景容量';
+    if(layerDt)layerDt.textContent='单层 / 层数';
+    const dimsDt2=Array.prototype.find.call(document.querySelectorAll('.object-scale-card dt'),d=>d.textContent.indexOf('物品参考尺寸')>=0);
+    if(dimsDt2)dimsDt2.textContent='物品参考尺寸';
+    if(adviceNote)adviceNote.textContent='按物品尺寸与柜体净空自动生成';
   }
-  if(nameEl)nameEl.textContent=has?(r.itemName+'（单品参考）'):r.itemName;
+}
+
+// 柜体立面结构示意图：按方案里的分区/离地/占宽把每类物品画成方块（示意，不是施工图）
+function renderPlanFigure(plan){
+  const fig=document.getElementById('askPlanDiagram'); if(!fig) return;
+  const rows=(plan.rows||[]).filter(x=>x&&typeof x.from==='number');
+  if(!rows.length){fig.hidden=true; fig.innerHTML=''; return;}
+  const d=plan.dims||{}, L=Number(d.length)||1200, H=Number(d.height)||2000, bays=Math.max(1,Number(plan.bays)||1);
+  const PAD=24, VW=286;                       // PAD：左侧留给标高标注的外侧空间（尺寸线不压图形）
+  let s=Math.min(VW/L, 520/H);
+  if(H*s<96) s=96/H;                          // 矮柜：按最小可读高度反推，保持宽高同一比例
+  if(L*s>VW*1.7) s=(VW*1.7)/L;
+  const w=L*s, h=H*s, tone=x=>/挂衣/.test(x)?'#efe8f7':/直立/.test(x)?'#e8f0ea':/落地/.test(x)?'#fdeedd':'#eef1f6';
+  let inner='<rect x="'+PAD+'" y="0" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#fffdf9" stroke="#c9bda9" stroke-width="1.4"/>';
+  for(let i=1;i<bays;i++){const x=PAD+w*i/bays; inner+='<line x1="'+x.toFixed(1)+'" y1="0" x2="'+x.toFixed(1)+'" y2="'+h.toFixed(1)+'" stroke="#ded3c0" stroke-width="1" stroke-dasharray="3 3"/>';}
+  // 标高刻度（画在图形左侧外侧）
+  for(let mm=500;mm<H;mm+=500){const y=h-mm*s; inner+='<line x1="'+(PAD-3)+'" y1="'+y.toFixed(1)+'" x2="'+PAD+'" y2="'+y.toFixed(1)+'" stroke="#c9bda9" stroke-width="1"/><line x1="'+PAD+'" y1="'+y.toFixed(1)+'" x2="'+(PAD+w).toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="#f2ebdd" stroke-width="1"/><text x="'+(PAD-4.5)+'" y="'+(y+2).toFixed(1)+'" font-size="6" text-anchor="end" fill="#a99a85">'+mm+'</text>';}
+  const cursor={};
+  rows.forEach(x=>{
+    const where=String(x.where||''), m=/第(\d+)格/.exec(where), bay=m?Math.min(bays,parseInt(m[1],10)):0;
+    const x0=bay?w*(bay-1)/bays:0, x1=bay?w*bay/bays:w, key=where+'|'+bay;
+    const iw=Math.max(7,(parseFloat(String(x.dims||'').split('×')[0])||60)*s);
+    let cx=(cursor[key]===undefined?x0+1:cursor[key]), cw=Math.min(iw,x1-1-cx);
+    if(cw<4){cx=x0+1; cw=Math.min(iw,x1-x0-2);}
+    cursor[key]=cx+cw+1;
+    const y=Math.max(0,(H-(Number(x.to)||0))*s), hh=Math.max(3,((Number(x.to)||0)-(Number(x.from)||0))*s);
+    inner+='<rect x="'+(PAD+cx).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+Math.max(3,cw).toFixed(1)+'" height="'+hh.toFixed(1)+'" fill="'+tone(where)+'" stroke="#b9ab93" stroke-width="0.7" rx="1"/>';
+    if(cw>17&&hh>7.5) inner+='<text x="'+(PAD+cx+cw/2).toFixed(1)+'" y="'+(y+hh/2+2).toFixed(1)+'" font-size="5.6" text-anchor="middle" fill="#4b4237">'+escPlan(String(x.name).slice(0,4))+'<tspan fill="#8a7f70">×'+x.suggest+'</tspan></text>';
+  });
+  // 底部总长尺寸线（同样在图形外侧）
+  const by=h+5.5;
+  inner+='<line x1="'+PAD+'" y1="'+by.toFixed(1)+'" x2="'+(PAD+w).toFixed(1)+'" y2="'+by.toFixed(1)+'" stroke="#c9bda9" stroke-width="1"/>'
+    +'<line x1="'+PAD+'" y1="'+(by-2.5).toFixed(1)+'" x2="'+PAD+'" y2="'+(by+2.5).toFixed(1)+'" stroke="#c9bda9" stroke-width="1"/>'
+    +'<line x1="'+(PAD+w).toFixed(1)+'" y1="'+(by-2.5).toFixed(1)+'" x2="'+(PAD+w).toFixed(1)+'" y2="'+(by+2.5).toFixed(1)+'" stroke="#c9bda9" stroke-width="1"/>'
+    +'<text x="'+(PAD+w/2).toFixed(1)+'" y="'+(by+7).toFixed(1)+'" font-size="6" text-anchor="middle" fill="#a99a85">总长 '+fmtInt(L)+' mm（'+bays+' 格）</text>';
+  fig.hidden=false;
+  fig.innerHTML='<div class="ask-fig-head">柜体结构图（立面示意）<span>净空 长 '+fmtInt(L)+' × 高 '+fmtInt(H)+' mm</span></div>'
+    +'<svg viewBox="0 0 '+(w+PAD+3).toFixed(0)+' '+(h+13).toFixed(0)+'" width="100%" style="display:block;max-height:420px" role="img" aria-label="柜体立面结构示意图">'+inner+'</svg>'
+    +'<div class="ask-fig-foot">方块＝物品占位（长按实物尺寸等比、高度按实际层高与离地定位，横向并排）；左侧刻度＝离地高度 mm。示意用，施工以下单图为准。</div>';
 }
 
 function renderGeneral(){
@@ -376,8 +427,8 @@ function renderGeneral(){
   document.getElementById('generalWarnings').innerHTML=r.warnings.map(w=>`<div class="warning ${w.level}">${w.text}</div>`).join('')+layLine+hintLines; document.getElementById('generalSource').textContent=`尺寸依据：内部实测尺寸数据库幻灯片 ${r.slide}；默认板厚 ${r.board}mm、扣深 ${r.depthLoss}mm、自动 ${r.bays} 格。用于方案初审，施工前按实物复尺。`;
   var _ph=document.getElementById('pitchHint');
   if(_ph)_ph.textContent=(r.pitchOverride>0?('当前按你填的 '+r.pitchOverride+' mm 计算（已覆盖库内默认 '+r.libPitch+' mm）。'):('0 或留空＝用物品库默认值 '+r.libPitch+' mm。'))+' 书按"每本厚度"、衣服按"每件占杆宽"、鞋按"每双占宽"理解；这一项直接决定容量，务必按客户实物改。';
-  renderAskPlan(r);
   if(window.YujiAdvice) YujiAdvice.render(r,{userHeight:generalNumber('generalUserHeight')||1600});
+  renderAskPlan(r);
   if(typeof scheduleSave==='function')scheduleSave();
 }
 
