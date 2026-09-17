@@ -130,6 +130,30 @@
 
             <div class="ask-box">
               <div class="ask-title">自主提问 <small>答案只使用本场景物品库里的条目</small></div>
+              <div class="ask-plan-tools">
+                <button type="button" class="secondary-btn" id="planUploadBtn">📎 上传平面图</button>
+                <input type="file" id="planFile" accept="image/*,application/pdf" hidden>
+                <span class="ask-plan-status" id="planStatus">上传标注了尺寸的平面图，直接按图上量到的尺寸出方案</span>
+              </div>
+              <div class="plan-stage" id="planStage" hidden>
+                <div class="plan-toolbar">
+                  <button type="button" class="secondary-btn" id="planCalBtn">① 标定比例</button>
+                  <button type="button" class="secondary-btn" id="planMarkBtn">② 框选柜位</button>
+                  <button type="button" class="secondary-btn" id="planResetBtn">清除</button>
+                </div>
+                <div class="plan-canvas-wrap" id="planWrap">
+                  <img id="planImg" alt="上传的平面图">
+                  <canvas id="planCanvas"></canvas>
+                </div>
+                <div class="plan-readout" id="planReadout">上传后先标定比例，再框选柜位。</div>
+                <div class="plan-actions" id="planActions" hidden>
+                  <label>长 <input id="planLen" type="number" step="10"></label>
+                  <label>高 <input id="planHigh" type="number" step="10"></label>
+                  <label>深 <input id="planDeep" type="number" step="10"></label>
+                  <span>mm</span>
+                  <button type="button" class="primary-btn" id="planAskBtn">按这个尺寸提问</button>
+                </div>
+              </div>
               <div class="ask-row">
                 <textarea id="askInput" rows="2" placeholder="例如：1米宽2米高5层板的茶水柜，按业主喜好建议怎么放置和收纳？"></textarea>
                 <button type="button" class="primary-btn" id="askBtn">问一下</button>
