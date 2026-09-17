@@ -531,7 +531,7 @@
     var outRows = placed.map(function (r) {
       var where = r.zone;
       if (!where || where === '层板区') { seq++; where = '第 ' + seq + ' 层'; }
-      return { where: where, name: r.name, unit: r.unit, suggest: r.suggest, cap: r.cap,
+      return { where: where, name: r.name, unit: r.unit, suggest: r.suggest, cap: r.cap, dims: r.dims,
         from: Math.round(r.from), to: Math.round(r.to), clear: Math.round(r.layerClear) };
     });
 
